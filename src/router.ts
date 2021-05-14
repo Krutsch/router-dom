@@ -7,21 +7,28 @@ listen();
 let router: Router;
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
+const base = $("base")?.getAttribute("href") || "";
 
 addEventListener("popstate", async () => {
   const [route, state] = getMatchingRoute();
 
   if (route) {
     try {
-      const to = history.state?.path?.startsWith(".")
-        ? history.state?.path.replace(".", "")
-        : history.state?.path ||
-          location.pathname.replace(router.options.base || "", "");
+      const to = history.state?.path || location.pathname;
+
+      const [_, ...values] = to.match(route.path);
+      const params = Array.from(route.originalPath.matchAll(/(?<=:)\w+/g))
+        .flat()
+        .reduce((state: LooseObject, key, idx) => {
+          state[key] = values[idx];
+          return state;
+        }, {});
+
       const props = {
         from: router.oldRoute || to,
         to,
         state,
-        params: router.getParams(),
+        params: { ...router.getParams(), ...params },
       };
 
       // Trigger leave
@@ -69,7 +76,11 @@ export default class Router {
 
   constructor(routes: [RouteParam, ...RouteParam[]], options: Options = {}) {
     const newRoutes = routes.map((route) => {
-      return { ...route, path: pathToRegexp(route.path) };
+      return {
+        ...route,
+        path: pathToRegexp(base + route.path),
+        originalPath: route.path,
+      };
     }) as [Route, ...Route[]];
 
     this.routes = newRoutes;
@@ -83,18 +94,12 @@ export default class Router {
     dispatchEvent(new Event("popstate"));
   }
 
-  go(path: string, state: LooseObject, params?: string) {
-    const base = this.options.base || "";
-    this.oldRoute = location.pathname.replace(base, "");
-    const filteredPath = path.startsWith(".") ? path.replace(".", "") : path;
+  go(path: string, state: LooseObject, params = "") {
+    this.oldRoute = location.pathname;
 
     // Only navigate when the path differs
-    if (filteredPath !== this.oldRoute) {
-      history.pushState(
-        { path, params, ...state },
-        "",
-        params ? base + filteredPath + params : base + filteredPath
-      );
+    if (path !== this.oldRoute) {
+      history.pushState({ path: path + params, ...state }, "", path + params);
 
       this.triggerEvent();
     }
@@ -110,7 +115,11 @@ export default class Router {
   }
 
   addRoute(route: RouteParam) {
-    this.routes.push({ ...route, path: pathToRegexp(route.path) });
+    this.routes.push({
+      ...route,
+      path: pathToRegexp(route.path),
+      originalPath: route.path,
+    });
   }
 
   modifyRoute(path: string, newRoute: RouteParam) {
@@ -118,7 +127,11 @@ export default class Router {
       (route) => String(route.path) === String(pathToRegexp(path))
     );
     if (idx > -1) {
-      this.routes[idx] = { ...newRoute, path: pathToRegexp(newRoute.path) };
+      this.routes[idx] = {
+        ...newRoute,
+        path: pathToRegexp(newRoute.path),
+        originalPath: path,
+      };
     }
   }
 
@@ -132,12 +145,8 @@ export default class Router {
 }
 
 function getMatchingRoute(): [Route | undefined, LooseObject] {
-  let {
-    path = "/",
-    params,
-    ...state
-  } = history.state || {
-    path: location.pathname.replace(router.options.base || "", ""),
+  let { path, ...state } = history.state || {
+    path: location.pathname,
   };
 
   if (path.startsWith(".")) {
@@ -152,10 +161,13 @@ function registerAnchorEvent(anchor: HTMLAnchorElement) {
     const anchor = e.target as HTMLAnchorElement;
     const hasData = anchor.getAttribute("data");
     const hydroProp = replaceBars(hasData);
-    router.go(
-      anchor.getAttribute("href")!,
-      hasData ? hydro[hydroProp!] : void 0
-    );
+    let href = anchor.getAttribute("href") || "";
+    if (href.startsWith(".")) {
+      href = href.replace("./", "");
+    } else if (href.startsWith("/")) {
+      href = href.replace("/", "");
+    }
+    router.go(base + href, hasData ? hydro[hydroProp!] : void 0);
   });
 }
 
@@ -207,9 +219,9 @@ interface RouteParam extends RouteBasic {
 }
 interface Route extends RouteBasic {
   path: RegExp;
+  originalPath: string;
 }
 interface Options {
-  base?: string;
   errorHandler?(e: Error): Promise<any> | void;
 }
 interface RoutingProps {

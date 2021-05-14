@@ -5,19 +5,24 @@ listen();
 let router;
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
+const base = $("base")?.getAttribute("href") || "";
 addEventListener("popstate", async () => {
     const [route, state] = getMatchingRoute();
     if (route) {
         try {
-            const to = history.state?.path?.startsWith(".")
-                ? history.state?.path.replace(".", "")
-                : history.state?.path ||
-                    location.pathname.replace(router.options.base || "", "");
+            const to = history.state?.path || location.pathname;
+            const [_, ...values] = to.match(route.path);
+            const params = Array.from(route.originalPath.matchAll(/(?<=:)\w+/g))
+                .flat()
+                .reduce((state, key, idx) => {
+                state[key] = values[idx];
+                return state;
+            }, {});
             const props = {
                 from: router.oldRoute || to,
                 to,
                 state,
-                params: router.getParams(),
+                params: { ...router.getParams(), ...params },
             };
             // Trigger leave
             if (router.oldRoute) {
@@ -53,7 +58,11 @@ addEventListener("popstate", async () => {
 export default class Router {
     constructor(routes, options = {}) {
         const newRoutes = routes.map((route) => {
-            return { ...route, path: pathToRegexp(route.path) };
+            return {
+                ...route,
+                path: pathToRegexp(base + route.path),
+                originalPath: route.path,
+            };
         });
         this.routes = newRoutes;
         this.options = options;
@@ -63,13 +72,11 @@ export default class Router {
     triggerEvent() {
         dispatchEvent(new Event("popstate"));
     }
-    go(path, state, params) {
-        const base = this.options.base || "";
-        this.oldRoute = location.pathname.replace(base, "");
-        const filteredPath = path.startsWith(".") ? path.replace(".", "") : path;
+    go(path, state, params = "") {
+        this.oldRoute = location.pathname;
         // Only navigate when the path differs
-        if (filteredPath !== this.oldRoute) {
-            history.pushState({ path, params, ...state }, "", params ? base + filteredPath + params : base + filteredPath);
+        if (path !== this.oldRoute) {
+            history.pushState({ path: path + params, ...state }, "", path + params);
             this.triggerEvent();
         }
     }
@@ -80,12 +87,20 @@ export default class Router {
         }
     }
     addRoute(route) {
-        this.routes.push({ ...route, path: pathToRegexp(route.path) });
+        this.routes.push({
+            ...route,
+            path: pathToRegexp(route.path),
+            originalPath: route.path,
+        });
     }
     modifyRoute(path, newRoute) {
         const idx = this.routes.findIndex((route) => String(route.path) === String(pathToRegexp(path)));
         if (idx > -1) {
-            this.routes[idx] = { ...newRoute, path: pathToRegexp(newRoute.path) };
+            this.routes[idx] = {
+                ...newRoute,
+                path: pathToRegexp(newRoute.path),
+                originalPath: path,
+            };
         }
     }
     changeOptions(options) {
@@ -96,8 +111,8 @@ export default class Router {
     }
 }
 function getMatchingRoute() {
-    let { path = "/", params, ...state } = history.state || {
-        path: location.pathname.replace(router.options.base || "", ""),
+    let { path, ...state } = history.state || {
+        path: location.pathname,
     };
     if (path.startsWith(".")) {
         path = path.replace(".", "");
@@ -110,7 +125,14 @@ function registerAnchorEvent(anchor) {
         const anchor = e.target;
         const hasData = anchor.getAttribute("data");
         const hydroProp = replaceBars(hasData);
-        router.go(anchor.getAttribute("href"), hasData ? hydro[hydroProp] : void 0);
+        let href = anchor.getAttribute("href") || "";
+        if (href.startsWith(".")) {
+            href = href.replace("./", "");
+        }
+        else if (href.startsWith("/")) {
+            href = href.replace("/", "");
+        }
+        router.go(base + href, hasData ? hydro[hydroProp] : void 0);
     });
 }
 function replaceBars(hydroTerm) {

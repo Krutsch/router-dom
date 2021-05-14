@@ -26,6 +26,8 @@ or via CDN:
 ## Usage
 
 ```html
+<!-- If needed with base -->
+<base href="/.../" />
 <a href="./about" data="about">About</a>
 <div data-outlet></div>
 ```
@@ -40,17 +42,17 @@ or via CDN:
 
 ### Constructor
 
-The router class takes an array with at least one entry. Only the path is mandatory. Either a template or and element will be rendered in your element with attribute `data-outlet`. The second argument is the optional object options: it can take a base and and general errorHandler.
+The router class takes an array with at least one entry. Only the path is mandatory. Either a template or and element will be rendered in your element with attribute `data-outlet`. The second argument is the optional object options: it can take a general errorHandler.
 
 ```js
 const router = new Router([
   {
-    path: "/about",
+    path: "about",
     templateUrl: "./about.html",
     leave: ({ from, to, state, params }) => ...
   },
   {
-    path: "/contact",
+    path: "contact/:name",
     element: html`<h2>Drop a message on [...]</h2>`,
     beforeEnter: ({ from, to, state, params }) => ...
     afterEnter: ({ from, to, state, params }) => ...

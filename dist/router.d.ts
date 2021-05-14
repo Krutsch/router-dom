@@ -30,9 +30,9 @@ interface RouteParam extends RouteBasic {
 }
 interface Route extends RouteBasic {
     path: RegExp;
+    originalPath: string;
 }
 interface Options {
-    base?: string;
     errorHandler?(e: Error): Promise<any> | void;
 }
 interface RoutingProps {
