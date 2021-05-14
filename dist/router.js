@@ -10,7 +10,7 @@ addEventListener("popstate", async () => {
     const [route, state] = getMatchingRoute();
     if (route) {
         try {
-            const to = history.state?.path || location.pathname;
+            const to = history.state?.path ?? location.pathname;
             const [_, ...values] = to.match(route.path);
             const params = Array.from(route.originalPath.matchAll(/(?<=:)\w+/g))
                 .flat()
@@ -19,7 +19,7 @@ addEventListener("popstate", async () => {
                 return state;
             }, {});
             const props = {
-                from: router.oldRoute || to,
+                from: router.oldRoute ?? to,
                 to,
                 state,
                 params: { ...router.getParams(), ...params },
@@ -129,7 +129,7 @@ function registerAnchorEvent(anchor) {
         if (href.startsWith(".")) {
             href = href.replace("./", "");
         }
-        else if (href.startsWith("/")) {
+        else if (href.startsWith("/") && href.length > 1) {
             href = href.replace("/", "");
         }
         router.go(base + href, hasData ? hydro[hydroProp] : void 0);

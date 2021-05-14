@@ -26,9 +26,10 @@ or via CDN:
 ## Usage
 
 ```html
-<!-- If needed with base -->
+<!-- With base -->
 <base href="/.../" />
 <a href="./about" data="about">About</a>
+<!-- href="about" without base -->
 <div data-outlet></div>
 ```
 
