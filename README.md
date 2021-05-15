@@ -26,10 +26,10 @@ or via CDN:
 ## Usage
 
 ```html
-<!-- With base -->
 <base href="/.../" />
 <a href="./about" data="about">About</a>
 <!-- href="about" without base -->
+
 <div data-outlet></div>
 ```
 
@@ -55,7 +55,7 @@ const router = new Router([
   {
     path: "contact/:name",
     element: html`<h2>Drop a message on [...]</h2>`,
-    beforeEnter: ({ from, to, state, params }) => ...
+    beforeEnter: ({ from, to, state, params }) => ...,
     afterEnter: ({ from, to, state, params }) => ...
   }
 ]);
@@ -71,21 +71,21 @@ const router = new Router([
 
 ### addRoute
 
-- Add a route object to the routes array.
+- Adds a route object to the routes array.
 
 ### modifyRoute
 
-- Replace a route with a new one.
+- Replaces a route with a new one.
 
 ### changeOptions
 
-- Replace the router options.
+- Replaces the router options.
 
 ### getParams
 
-- Return the params as key-value pair.
+- Returns the params as key-value pair.
 
 ## To Do
 
 - Add tests
-- Nested routes
+- Add nested routes
