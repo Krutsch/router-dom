@@ -158,7 +158,6 @@ function getMatchingRoute(): [Route | undefined, LooseObject] {
 function registerAnchorEvent(anchor: HTMLAnchorElement) {
   anchor.addEventListener("click", (e: MouseEvent) => {
     e.preventDefault();
-    const anchor = e.target as HTMLAnchorElement;
     const hasData = anchor.getAttribute("data");
     const hydroProp = replaceBars(hasData);
     let href = anchor.getAttribute("href") || "";

@@ -122,7 +122,6 @@ function getMatchingRoute() {
 function registerAnchorEvent(anchor) {
     anchor.addEventListener("click", (e) => {
         e.preventDefault();
-        const anchor = e.target;
         const hasData = anchor.getAttribute("data");
         const hydroProp = replaceBars(hasData);
         let href = anchor.getAttribute("href") || "";
