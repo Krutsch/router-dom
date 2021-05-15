@@ -5,6 +5,7 @@
 > - it helps to reduce the delay between your pages, to minimize browser HTTP requests and enhance your user's web experience.
 > - library agnostic.
 > - simple: define your routes, start to listen to route changes
+> - base support
 > - support in all modern browsers.
 
 ## Installation
@@ -25,11 +26,11 @@ or via CDN:
 
 ## Usage
 
-```html
-<base href="/.../" />
-<a href="./about" data="about">About</a>
-<!-- href="about" without base -->
+Use the href attribute in order to help `quicklink` prefetching the resource and use data-href as routing path.
 
+```html
+<a href="/">Home</a>
+<a href="about.html" data-href="/about">About</a>
 <div data-outlet></div>
 ```
 
@@ -47,13 +48,16 @@ The router class takes an array with at least one entry. Only the path is mandat
 
 ```js
 const router = new Router([
+   {
+    path: "/",
+  },
   {
-    path: "about",
-    templateUrl: "./about.html",
+    path: "/about",
+    templateUrl: "/about.html",
     leave: ({ from, to, state, params }) => ...
   },
   {
-    path: "contact/:name",
+    path: "/contact/:name",
     element: html`<h2>Drop a message on [...]</h2>`,
     beforeEnter: ({ from, to, state, params }) => ...,
     afterEnter: ({ from, to, state, params }) => ...
@@ -63,7 +67,7 @@ const router = new Router([
 
 ### go
 
-- Takes a path, an state object and optional params. Will redirect to the path.
+- Takes a path, a state object and optional params. Will redirect to the path.
 
 ### removeRoute
 

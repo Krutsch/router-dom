@@ -124,13 +124,7 @@ function registerAnchorEvent(anchor) {
         e.preventDefault();
         const hasData = anchor.getAttribute("data");
         const hydroProp = replaceBars(hasData);
-        let href = anchor.getAttribute("href") || "";
-        if (href.startsWith(".")) {
-            href = href.replace("./", "");
-        }
-        else if (href.startsWith("/") && href.length > 1) {
-            href = href.replace("/", "");
-        }
+        let href = anchor.getAttribute("data-href") || anchor.getAttribute("href") || "";
         router.go(base + href, hasData ? hydro[hydroProp] : void 0);
     });
 }
