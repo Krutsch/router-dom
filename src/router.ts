@@ -7,6 +7,7 @@ listen();
 let router: Router;
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
+const flagsRegex = /:\w+/g;
 const base = $("base")?.getAttribute("href") || "";
 
 addEventListener("popstate", async () => {
@@ -17,8 +18,9 @@ addEventListener("popstate", async () => {
       const to = history.state?.path ?? location.pathname;
 
       const [_, ...values] = to.match(route.path);
-      const params = Array.from(route.originalPath.matchAll(/(?<=:)\w+/g))
+      const params = Array.from(route.originalPath.matchAll(flagsRegex))
         .flat()
+        .map((i) => i.replace(":", ""))
         .reduce((state: LooseObject, key, idx) => {
           state[key] = values[idx];
           return state;
