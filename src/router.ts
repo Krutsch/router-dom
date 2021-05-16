@@ -158,6 +158,7 @@ function getMatchingRoute(): [Route | undefined, LooseObject] {
 }
 
 function registerAnchorEvent(anchor: HTMLAnchorElement) {
+  if (anchor.getAttribute("href")?.startsWith("http")) return;
   anchor.addEventListener("click", (e: MouseEvent) => {
     e.preventDefault();
     const hasData = anchor.getAttribute("data");

@@ -122,6 +122,8 @@ function getMatchingRoute() {
     return [router.routes.find((route) => route.path.exec(path)), state];
 }
 function registerAnchorEvent(anchor) {
+    if (anchor.getAttribute("href")?.startsWith("http"))
+        return;
     anchor.addEventListener("click", (e) => {
         e.preventDefault();
         const hasData = anchor.getAttribute("data");
