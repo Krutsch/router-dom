@@ -31,7 +31,7 @@ addEventListener("popstate", async () => {
                 const oldRoute = router.routes.find((route) => route.path.exec(router.oldRoute));
                 if (oldRoute) {
                     await oldRoute["leave" /* leave */]?.(props);
-                    router.oldRoute = void 0; // Will be set in function go. Also, we cannot retrieve the path from the RegExp
+                    router.oldRoute = oldRoute.originalPath;
                 }
             }
             // Trigger beforeEnter

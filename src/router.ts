@@ -40,7 +40,7 @@ addEventListener("popstate", async () => {
         );
         if (oldRoute) {
           await oldRoute[cycles.leave]?.(props);
-          router.oldRoute = void 0; // Will be set in function go. Also, we cannot retrieve the path from the RegExp
+          router.oldRoute = oldRoute.originalPath;
         }
       }
 
