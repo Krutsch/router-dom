@@ -8,6 +8,10 @@
 > - base support
 > - support in all modern browsers.
 
+## Demo
+
+https://page-transitions-router.netlify.app
+
 ## Installation
 
 With npm:
