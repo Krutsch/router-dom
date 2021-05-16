@@ -40,7 +40,7 @@ addEventListener("popstate", async () => {
         );
         if (oldRoute) {
           await oldRoute[cycles.leave]?.(props);
-          router.oldRoute = oldRoute.originalPath;
+          router.oldRoute = route.originalPath;
         }
       }
 

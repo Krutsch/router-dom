@@ -31,7 +31,7 @@ addEventListener("popstate", async () => {
                 const oldRoute = router.routes.find((route) => route.path.exec(router.oldRoute));
                 if (oldRoute) {
                     await oldRoute["leave" /* leave */]?.(props);
-                    router.oldRoute = oldRoute.originalPath;
+                    router.oldRoute = route.originalPath;
                 }
             }
             // Trigger beforeEnter
