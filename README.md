@@ -10,7 +10,8 @@
 
 ## Demo
 
-https://page-transitions-router.netlify.app
+Simple: https://codepen.io/FabianK/pen/vYxXjwv?editors=1000<br>
+Advanced: https://page-transitions-router.netlify.app
 
 ## Installation
 
@@ -24,7 +25,7 @@ or via CDN:
 
 ```html
 <script type="module">
-  import Router from "https://unpkg.com/router-dom";
+  import Router from "https://cdn.skypack.dev/router-dom";
 </script>
 ```
 
@@ -52,20 +53,20 @@ The router class takes an array with at least one entry. Only the path is mandat
 
 ```js
 const router = new Router([
-   {
+  {
     path: "/",
   },
   {
     path: "/about",
     templateUrl: "/about.html",
-    leave: ({ from, to, state, params }) => ...
+    leave: ({ from, to, state, params }) => {},
   },
   {
     path: "/contact/:name",
     element: html`<h2>Drop a message on [...]</h2>`,
-    beforeEnter: ({ from, to, state, params }) => ...,
-    afterEnter: ({ from, to, state, params }) => ...
-  }
+    beforeEnter: ({ from, to, state, params }) => {},
+    afterEnter: ({ from, to, state, params }) => {},
+  },
 ]);
 ```
 
