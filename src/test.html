@@ -33,7 +33,7 @@
                 },
               },
               {
-                path: "/a",
+                path: "/a(\\?)?(.*)",
                 element: "<h1>a</h1>",
                 leave(params) {
                   window.leaveA = params;
@@ -140,7 +140,21 @@
             expect($("[data-outlet]").textContent).to.include("b");
           });
 
-          it("calls the lifecycle hooks, when navigating via API", async () => {
+          it("does not navigate when route is the same", async () => {
+            const props = { from: "/", to: "/a" };
+            $("#a").click();
+            await sleep(50);
+            expect(window.beforeEnterA).to.deep.equal(props);
+            delete window.beforeEnterA;
+            $("#a").click();
+            await sleep(50);
+            expect(window.beforeEnterA).to.be.undefined;
+            $("#param").click();
+            await sleep(50);
+            expect(window.beforeEnterA).to.not.be.undefined;
+          });
+
+          it("calls the lifecycle hooks when navigating via API", async () => {
             const props = { from: "/", to: "/a" };
 
             router.go("/a");
@@ -158,7 +172,7 @@
             expect(window.afterEnterB).to.be.undefined;
           });
 
-          it("calls the lifecycle hooks, when navigating via click", async () => {
+          it("calls the lifecycle hooks when navigating via click", async () => {
             const props = { from: "/", to: "/b/4", params: { id: "4" } };
             $("#id").click();
             await sleep(50);
@@ -175,7 +189,7 @@
             expect(window.afterEnterA).to.be.undefined;
           });
 
-          it("calls the lifecycle hooks, when navigating via browser API", async () => {
+          it("calls the lifecycle hooks when navigating via browser API", async () => {
             const props = { from: "/", to: "/b/4", params: { id: "4" } };
             history.back();
             await sleep(50);
@@ -221,7 +235,7 @@
             it("uses state and data - click", async () => {
               const props = {
                 from: "/",
-                to: "/a",
+                to: "/a?q=testing",
                 awesome: 42,
                 params: { q: "testing" },
               };
@@ -232,7 +246,7 @@
             it("uses state and data - API", async () => {
               const props = {
                 from: "/",
-                to: "/a",
+                to: "/a?q=testing",
                 awesome: 42,
                 params: { q: "testing" },
               };
@@ -243,7 +257,7 @@
             it("uses state and data - API - param", async () => {
               const props = {
                 from: "/",
-                to: "/a",
+                to: "/a?q=testing",
                 awesome: 42,
                 params: { q: "testing" },
               };

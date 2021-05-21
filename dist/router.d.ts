@@ -3,7 +3,7 @@ export default class Router {
     routes: [Route, ...Route[]];
     oldRoute: undefined | string;
     constructor(routes: [RouteParam, ...RouteParam[]], options?: Options);
-    private triggerEvent;
+    private doRouting;
     go(path: string, state: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;
@@ -33,7 +33,7 @@ interface Route extends RouteBasic {
     originalPath: string;
 }
 interface Options {
-    errorHandler?(err: Error, e: PopStateEvent | Event): Promise<any> | void;
+    errorHandler?(err: Error, e?: PopStateEvent | Event): Promise<any> | void;
     formHandler?(res: Response, e: Event): Promise<any> | void;
 }
 interface RoutingProps {

@@ -14,26 +14,35 @@
         new Promise((resolve) => setTimeout(resolve, time));
 
       runTests(() => {
-        describe("router", () => {
-          let router;
+        let router;
 
-          it("handles the form submit", async () => {
-            router = new Router(
-              [
-                {
-                  path: "/",
-                },
-              ],
+        beforeEach(async () => {
+          router = new Router(
+            [
               {
-                formHandler(res, e) {
-                  window.form = res;
-                  window.formEvent = e;
-                },
-              }
-            );
-            await sleep(100);
+                path: "/",
+              },
+            ],
+            {
+              formHandler(res, e) {
+                window.form = res;
+                window.formEvent = e;
+              },
+              errorHandler(err, e) {
+                window.err = err;
+                window.errEvent = e;
+              },
+            }
+          );
+          await sleep(150);
+        });
+
+        describe("router", () => {
+          it("handles the form submit", async () => {
+            expect(window.form).to.be.undefined;
+            expect(window.formEvent).to.be.undefined;
             $("#submit").click();
-            await sleep(1500);
+            await sleep(1900);
             expect(window.form).to.be.not.undefined;
             expect(window.formEvent).to.be.not.undefined;
           });
@@ -54,6 +63,19 @@
         value="test@test.com"
       />
       <input id="submit" type="submit" value="Subscribe!" />
+    </form>
+    <form action="https://httpbin.org/asdasdas" method="get">
+      <label for="name2">Enter your name: </label>
+      <input type="text" name="name2" id="name2" required value="test" />
+      <label for="email2">Enter your email: </label>
+      <input
+        type="email"
+        name="email2"
+        id="email2"
+        required
+        value="test@test.com"
+      />
+      <input id="submit2" type="submit" value="Subscribe!" />
     </form>
   </body>
 </html>

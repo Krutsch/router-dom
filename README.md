@@ -48,6 +48,10 @@ Use the href attribute in order to help `quicklink` prefetching the resource and
 
 ## Documentation
 
+### Events
+
+- window: beforeRouting & afterRouting
+
 ### Constructor
 
 The router class takes an array with at least one entry. Only the path is mandatory. Either a template or and element will be rendered in your element with attribute `data-outlet`. The second argument is the optional object options: it can take a general errorHandler and a formHandler. If there is a formHandler, form submits will handled via attributes on the form element and fetch.

@@ -14,69 +14,8 @@ if (base.endsWith("/")) {
 }
 
 addEventListener("popstate", async (e) => {
-  const to = location.pathname;
-  const from = router.oldRoute ?? to;
-  const route = getMatchingRoute(to);
-
-  if (route) {
-    try {
-      const [_, ...values] = to.match(route.path)!;
-      const params = Array.from(route.originalPath.matchAll(flagsRegex))
-        .flat()
-        .map((i) => i.replace(":", ""))
-        .reduce((state: LooseObject, key, idx) => {
-          state[key] = values[idx];
-          return state;
-        }, {});
-
-      const allParams = { ...router.getParams(), ...params };
-      const props = {
-        from: from.replace(base, ""),
-        to: to.replace(base, ""),
-        ...(Object.keys(allParams).length ? { params: allParams } : {}),
-        ...history.state,
-      };
-
-      // Trigger leave
-      if (router.oldRoute) {
-        const oldRoute = router.routes.find((route) =>
-          route.path.exec(router.oldRoute!)
-        );
-        if (oldRoute) {
-          await oldRoute[cycles.leave]?.(props);
-          router.oldRoute = route.originalPath;
-        }
-      }
-
-      // Trigger beforeEnter
-      await route[cycles.beforeEnter]?.(props);
-
-      // Handle template / element
-      if (route?.templateUrl) {
-        const data = await fetch(route.templateUrl);
-        const _html = await data.text();
-        render(html`<div data-outlet>${_html}</div>`, outletSelector, false);
-      } else if (route?.element) {
-        render(
-          html`<div data-outlet>${route?.element}</div>`,
-          outletSelector,
-          false
-        );
-      } else {
-        // Clear outlet
-        $(outletSelector)!.textContent = null;
-      }
-
-      // Trigger afterEnter
-      await route[cycles.afterEnter]?.(props);
-    } catch (err) {
-      if (router.options.errorHandler) {
-        await router.options.errorHandler(err, e);
-      } else {
-        console.error(err, e);
-      }
-    }
-  }
+  //@ts-ignore
+  router.doRouting(location.pathname, e);
 });
 
 export default class Router {
@@ -97,21 +36,84 @@ export default class Router {
     this.options = options;
     router = this;
 
-    this.triggerEvent();
+    this.doRouting();
   }
 
-  private triggerEvent() {
-    dispatchEvent(new Event("popstate"));
+  private async doRouting(to: string = location.pathname, e?: PopStateEvent) {
+    dispatchEvent(new Event("beforeRouting"));
+    const from = this.oldRoute ?? to;
+    const route = getMatchingRoute(to);
+    if (route) {
+      try {
+        const [_, ...values] = to.match(route.path)!;
+        const params = Array.from(route.originalPath.matchAll(flagsRegex))
+          .flat()
+          .map((i) => i.replace(":", ""))
+          .reduce((state: LooseObject, key, idx) => {
+            state[key] = values[idx];
+            return state;
+          }, {});
+
+        const allParams = { ...this.getParams(), ...params };
+        const props = {
+          from: from.replace(base, ""),
+          to: to.replace(base, ""),
+          ...(Object.keys(allParams).length ? { params: allParams } : {}),
+          ...history.state,
+        };
+
+        // Trigger leave
+        if (this.oldRoute) {
+          const oldRoute = this.routes.find((route) =>
+            route.path.exec(this.oldRoute!)
+          );
+          if (oldRoute) {
+            await oldRoute[cycles.leave]?.(props);
+            this.oldRoute = route.originalPath;
+          }
+        }
+
+        // Trigger beforeEnter
+        await route[cycles.beforeEnter]?.(props);
+
+        // Handle template / element
+        if (route?.templateUrl) {
+          const data = await fetch(route.templateUrl);
+          const _html = await data.text();
+          render(html`<div data-outlet>${_html}</div>`, outletSelector, false);
+        } else if (route?.element) {
+          render(
+            html`<div data-outlet>${route?.element}</div>`,
+            outletSelector,
+            false
+          );
+        } else {
+          // Clear outlet
+          $(outletSelector)!.textContent = null;
+        }
+
+        // Trigger afterEnter
+        await route[cycles.afterEnter]?.(props);
+      } catch (err) {
+        if (this.options.errorHandler) {
+          await this.options.errorHandler(err, e);
+        } else {
+          console.error(err, e);
+        }
+      } finally {
+        dispatchEvent(new Event("afterRouting"));
+      }
+    }
   }
 
   go(path: string, state: LooseObject, params = "") {
     this.oldRoute = location.pathname;
+    const newPath = base + path + params;
 
     // Only navigate when the path differs
-    if (path !== this.oldRoute) {
-      history.pushState({ ...state }, "", base + path + params);
-
-      this.triggerEvent();
+    if (newPath !== this.oldRoute) {
+      history.pushState({ ...state }, "", newPath);
+      this.doRouting(newPath);
     }
   }
 
@@ -252,7 +254,7 @@ interface Route extends RouteBasic {
   originalPath: string;
 }
 interface Options {
-  errorHandler?(err: Error, e: PopStateEvent | Event): Promise<any> | void;
+  errorHandler?(err: Error, e?: PopStateEvent | Event): Promise<any> | void;
   formHandler?(res: Response, e: Event): Promise<any> | void;
 }
 interface RoutingProps {
