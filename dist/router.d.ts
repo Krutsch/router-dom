@@ -9,7 +9,7 @@ export default class Router {
     addRoute(route: RouteParam): void;
     modifyRoute(path: string, newRoute: RouteParam): void;
     changeOptions(options: Options): void;
-    getParams(): {
+    getParams(search?: string): {
         [k: string]: string;
     };
 }
@@ -39,6 +39,7 @@ interface RoutingProps {
     from: string;
     to: string;
     state: LooseObject;
+    params?: LooseObject;
 }
 declare type LooseObject = Record<keyof any, any>;
 export {};

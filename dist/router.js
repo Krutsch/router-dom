@@ -6,12 +6,16 @@ let router;
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
 const flagsRegex = /:\w+/g;
-const base = $("base")?.getAttribute("href") || "";
+let base = $("base")?.getAttribute("href") || "";
+if (base.endsWith("/")) {
+    base = [...base].slice(0, -1).join("");
+}
 addEventListener("popstate", async () => {
-    const [route, state] = getMatchingRoute();
+    const to = location.pathname;
+    const from = router.oldRoute ?? to;
+    const route = getMatchingRoute(to);
     if (route) {
         try {
-            const to = history.state?.path ?? location.pathname;
             const [_, ...values] = to.match(route.path);
             const params = Array.from(route.originalPath.matchAll(flagsRegex))
                 .flat()
@@ -20,11 +24,12 @@ addEventListener("popstate", async () => {
                 state[key] = values[idx];
                 return state;
             }, {});
+            const allParams = { ...router.getParams(), ...params };
             const props = {
-                from: router.oldRoute ?? to,
-                to,
-                state,
-                params: { ...router.getParams(), ...params },
+                from: from.replace(base, ""),
+                to: to.replace(base, ""),
+                ...(Object.keys(allParams).length ? { params: allParams } : {}),
+                ...history.state,
             };
             // Trigger leave
             if (router.oldRoute) {
@@ -53,7 +58,12 @@ addEventListener("popstate", async () => {
             await route["afterEnter" /* afterEnter */]?.(props);
         }
         catch (e) {
-            (await router.options.errorHandler?.(e)) || console.error(e);
+            if (router.options.errorHandler) {
+                await router.options.errorHandler(e);
+            }
+            else {
+                console.error(e);
+            }
         }
     }
 });
@@ -63,7 +73,7 @@ export default class Router {
             return {
                 ...route,
                 path: pathToRegexp(base + route.path),
-                originalPath: route.path,
+                originalPath: base + route.path,
             };
         });
         this.routes = newRoutes;
@@ -78,7 +88,7 @@ export default class Router {
         this.oldRoute = location.pathname;
         // Only navigate when the path differs
         if (path !== this.oldRoute) {
-            history.pushState({ path: path + params, ...state }, "", path + params);
+            history.pushState({ ...state }, "", base + path + params);
             this.triggerEvent();
         }
     }
@@ -91,8 +101,8 @@ export default class Router {
     addRoute(route) {
         this.routes.push({
             ...route,
-            path: pathToRegexp(route.path),
-            originalPath: route.path,
+            path: pathToRegexp(base + route.path),
+            originalPath: base + route.path,
         });
     }
     modifyRoute(path, newRoute) {
@@ -100,26 +110,23 @@ export default class Router {
         if (idx > -1) {
             this.routes[idx] = {
                 ...newRoute,
-                path: pathToRegexp(newRoute.path),
-                originalPath: path,
+                path: pathToRegexp(base + newRoute.path),
+                originalPath: base + path,
             };
         }
     }
     changeOptions(options) {
         this.options = options;
     }
-    getParams() {
-        return Object.fromEntries(new URLSearchParams(location.search));
+    getParams(search = location.search) {
+        return Object.fromEntries(new URLSearchParams(search));
     }
 }
-function getMatchingRoute() {
-    let { path, ...state } = history.state || {
-        path: location.pathname,
-    };
+function getMatchingRoute(path) {
     if (path.startsWith(".")) {
         path = path.replace(".", "");
     }
-    return [router.routes.find((route) => route.path.exec(path)), state];
+    return router.routes.find((route) => route.path.exec(path));
 }
 function registerAnchorEvent(anchor) {
     if (anchor.getAttribute("href")?.startsWith("http"))
@@ -129,7 +136,7 @@ function registerAnchorEvent(anchor) {
         const hasData = anchor.getAttribute("data");
         const hydroProp = replaceBars(hasData);
         let href = anchor.getAttribute("data-href") || anchor.getAttribute("href") || "";
-        router.go(base + href, hasData ? hydro[hydroProp] : void 0);
+        router.go(href, hasData ? hydro[hydroProp] : void 0);
     });
 }
 function replaceBars(hydroTerm) {

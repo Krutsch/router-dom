@@ -4,8 +4,8 @@
 >
 > - it helps to reduce the delay between your pages, to minimize browser HTTP requests and enhance your user's web experience.
 > - library agnostic.
-> - simple: define your routes, start to listen to route changes
-> - base support
+> - simple: define your routes, start to listen to route changes.
+> - base href support.
 > - support in all modern browsers.
 
 ## Demo
@@ -96,5 +96,5 @@ const router = new Router([
 
 ## To Do
 
-- Add tests
+- Handle Form Submits
 - Add nested routes
