@@ -1,6 +1,6 @@
 import { listen } from "quicklink";
 import { pathToRegexp } from "path-to-regexp";
-import { render, html, hydro, $ } from "hydro-js";
+import { render, html, hydro, $, $$ } from "hydro-js";
 
 listen();
 
@@ -13,7 +13,7 @@ if (base.endsWith("/")) {
   base = [...base].slice(0, -1).join("");
 }
 
-addEventListener("popstate", async () => {
+addEventListener("popstate", async (e) => {
   const to = location.pathname;
   const from = router.oldRoute ?? to;
   const route = getMatchingRoute(to);
@@ -69,11 +69,11 @@ addEventListener("popstate", async () => {
 
       // Trigger afterEnter
       await route[cycles.afterEnter]?.(props);
-    } catch (e) {
+    } catch (err) {
       if (router.options.errorHandler) {
-        await router.options.errorHandler(e);
+        await router.options.errorHandler(err, e);
       } else {
-        console.error(e);
+        console.error(err, e);
       }
     }
   }
@@ -173,6 +173,31 @@ function registerAnchorEvent(anchor: HTMLAnchorElement) {
   });
 }
 
+function registerFormEvent(form: HTMLFormElement) {
+  form.addEventListener("submit", (e) => {
+    if (!router.options.formHandler) return;
+    e.preventDefault();
+
+    const action = form.getAttribute("action")!;
+    const method = form.getAttribute("method")!;
+
+    fetch(action, {
+      method,
+      ...(!["HEAD", "GET"].includes(method.toUpperCase())
+        ? { body: new FormData(form) }
+        : {}),
+    })
+      .then((res) => router.options.formHandler!(res, e))
+      .catch(async (err) => {
+        if (router.options.errorHandler) {
+          await router.options.errorHandler(err, e);
+        } else {
+          console.error(err, e);
+        }
+      });
+  });
+}
+
 function replaceBars(hydroTerm: string | null) {
   if (hydroTerm === null || !hydroTerm.includes("{{")) return hydroTerm;
 
@@ -180,25 +205,28 @@ function replaceBars(hydroTerm: string | null) {
   return hydroPath;
 }
 
-// Add EventListener for every added anchor Element
-document.body.querySelectorAll("a").forEach(registerAnchorEvent);
+// Add EventListener for every added anchor and form Element
+$$("a").forEach(registerAnchorEvent);
+$$("form").forEach(registerFormEvent);
 new MutationObserver((entries) => {
   for (const entry of entries) {
     for (const node of entry.addedNodes) {
-      const anchors = document.createNodeIterator(
-        node,
-        NodeFilter.SHOW_ELEMENT,
-        {
-          acceptNode(elem: Element) {
-            return elem.localName === "a"
-              ? NodeFilter.FILTER_ACCEPT
-              : NodeFilter.FILTER_REJECT;
-          },
+      const nodes = document.createNodeIterator(node, NodeFilter.SHOW_ELEMENT, {
+        acceptNode(elem: Element) {
+          return ["form", "a"].includes(elem.localName)
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        },
+      });
+      let formOrA: HTMLAnchorElement | HTMLFormElement;
+      while (
+        (formOrA = nodes.nextNode() as HTMLAnchorElement | HTMLFormElement)
+      ) {
+        if (formOrA.localName === "a") {
+          registerAnchorEvent(formOrA as HTMLAnchorElement);
+        } else {
+          registerFormEvent(formOrA as HTMLFormElement);
         }
-      );
-      let anchor;
-      while ((anchor = anchors.nextNode() as HTMLAnchorElement)) {
-        registerAnchorEvent(anchor);
       }
     }
   }
@@ -224,7 +252,8 @@ interface Route extends RouteBasic {
   originalPath: string;
 }
 interface Options {
-  errorHandler?(e: Error): Promise<any> | void;
+  errorHandler?(err: Error, e: PopStateEvent | Event): Promise<any> | void;
+  formHandler?(res: Response, e: Event): Promise<any> | void;
 }
 interface RoutingProps {
   from: string;

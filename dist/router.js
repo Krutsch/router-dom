@@ -1,6 +1,6 @@
 import { listen } from "quicklink";
 import { pathToRegexp } from "path-to-regexp";
-import { render, html, hydro, $ } from "hydro-js";
+import { render, html, hydro, $, $$ } from "hydro-js";
 listen();
 let router;
 const outletSelector = "[data-outlet]";
@@ -10,7 +10,7 @@ let base = $("base")?.getAttribute("href") || "";
 if (base.endsWith("/")) {
     base = [...base].slice(0, -1).join("");
 }
-addEventListener("popstate", async () => {
+addEventListener("popstate", async (e) => {
     const to = location.pathname;
     const from = router.oldRoute ?? to;
     const route = getMatchingRoute(to);
@@ -57,12 +57,12 @@ addEventListener("popstate", async () => {
             // Trigger afterEnter
             await route["afterEnter" /* afterEnter */]?.(props);
         }
-        catch (e) {
+        catch (err) {
             if (router.options.errorHandler) {
-                await router.options.errorHandler(e);
+                await router.options.errorHandler(err, e);
             }
             else {
-                console.error(e);
+                console.error(err, e);
             }
         }
     }
@@ -139,27 +139,57 @@ function registerAnchorEvent(anchor) {
         router.go(href, hasData ? hydro[hydroProp] : void 0);
     });
 }
+function registerFormEvent(form) {
+    form.addEventListener("submit", (e) => {
+        if (!router.options.formHandler)
+            return;
+        e.preventDefault();
+        const action = form.getAttribute("action");
+        const method = form.getAttribute("method");
+        fetch(action, {
+            method,
+            ...(!["HEAD", "GET"].includes(method.toUpperCase())
+                ? { body: new FormData(form) }
+                : {}),
+        })
+            .then((res) => router.options.formHandler(res, e))
+            .catch(async (err) => {
+            if (router.options.errorHandler) {
+                await router.options.errorHandler(err, e);
+            }
+            else {
+                console.error(err, e);
+            }
+        });
+    });
+}
 function replaceBars(hydroTerm) {
     if (hydroTerm === null || !hydroTerm.includes("{{"))
         return hydroTerm;
     const [_, hydroPath] = hydroTerm.match(reactivityRegex) || [];
     return hydroPath;
 }
-// Add EventListener for every added anchor Element
-document.body.querySelectorAll("a").forEach(registerAnchorEvent);
+// Add EventListener for every added anchor and form Element
+$$("a").forEach(registerAnchorEvent);
+$$("form").forEach(registerFormEvent);
 new MutationObserver((entries) => {
     for (const entry of entries) {
         for (const node of entry.addedNodes) {
-            const anchors = document.createNodeIterator(node, NodeFilter.SHOW_ELEMENT, {
+            const nodes = document.createNodeIterator(node, NodeFilter.SHOW_ELEMENT, {
                 acceptNode(elem) {
-                    return elem.localName === "a"
+                    return ["form", "a"].includes(elem.localName)
                         ? NodeFilter.FILTER_ACCEPT
                         : NodeFilter.FILTER_REJECT;
                 },
             });
-            let anchor;
-            while ((anchor = anchors.nextNode())) {
-                registerAnchorEvent(anchor);
+            let formOrA;
+            while ((formOrA = nodes.nextNode())) {
+                if (formOrA.localName === "a") {
+                    registerAnchorEvent(formOrA);
+                }
+                else {
+                    registerFormEvent(formOrA);
+                }
             }
         }
     }

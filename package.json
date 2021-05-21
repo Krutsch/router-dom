@@ -1,6 +1,6 @@
 {
   "name": "router-dom",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A lightweight router for everyone",
   "type": "module",
   "main": "dist/router.js",
@@ -37,7 +37,7 @@
   },
   "bugs": "https://github.com/Krutsch/router-dom/issues",
   "dependencies": {
-    "hydro-js": "^1.4.0",
+    "hydro-js": "^1.4.1",
     "path-to-regexp": "^6.2.0",
     "quicklink": "^2.1.0"
   }

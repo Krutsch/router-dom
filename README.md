@@ -6,6 +6,7 @@
 > - library agnostic.
 > - simple: define your routes, start to listen to route changes.
 > - base href support.
+> - opt-in errorHandler and formHandler.
 > - support in all modern browsers.
 
 ## Demo
@@ -49,7 +50,7 @@ Use the href attribute in order to help `quicklink` prefetching the resource and
 
 ### Constructor
 
-The router class takes an array with at least one entry. Only the path is mandatory. Either a template or and element will be rendered in your element with attribute `data-outlet`. The second argument is the optional object options: it can take a general errorHandler.
+The router class takes an array with at least one entry. Only the path is mandatory. Either a template or and element will be rendered in your element with attribute `data-outlet`. The second argument is the optional object options: it can take a general errorHandler and a formHandler. If there is a formHandler, form submits will handled via attributes on the form element and fetch.
 
 ```js
 const router = new Router([
@@ -96,5 +97,4 @@ const router = new Router([
 
 ## To Do
 
-- Handle Form Submits
 - Add nested routes

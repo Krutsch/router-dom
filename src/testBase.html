@@ -6,13 +6,12 @@
     <title>Router Tests</title>
     <base href="/search/" />
 
-    <script type="module" async>
-      import { hydro } from "hydro-js";
+    <script type="module">
+      import { hydro, $ } from "hydro-js";
       import { runTests } from "@web/test-runner-mocha";
       import { expect } from "@esm-bundle/chai";
       import Router from "../dist/router.js";
 
-      const $ = document.querySelector.bind(document);
       let base = $("base").getAttribute("href");
       if (base.endsWith("/")) {
         base = [...base].slice(0, -1).join("");

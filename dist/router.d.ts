@@ -33,7 +33,8 @@ interface Route extends RouteBasic {
     originalPath: string;
 }
 interface Options {
-    errorHandler?(e: Error): Promise<any> | void;
+    errorHandler?(err: Error, e: PopStateEvent | Event): Promise<any> | void;
+    formHandler?(res: Response, e: Event): Promise<any> | void;
 }
 interface RoutingProps {
     from: string;

@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Router Tests</title>
-    <script type="module" async>
-      import { hydro } from "hydro-js";
+    <script type="module">
+      import { hydro, $ } from "hydro-js";
       import { runTests } from "@web/test-runner-mocha";
       import { expect } from "@esm-bundle/chai";
       import Router from "../dist/router.js";
 
-      const $ = document.querySelector.bind(document);
       const sleep = (time) =>
         new Promise((resolve) => setTimeout(resolve, time));
 
