@@ -10,7 +10,7 @@ if (base.endsWith("/")) {
 }
 addEventListener("popstate", async (e) => {
     //@ts-expect-error
-    router.doRouting(location.pathname, e);
+    router.doRouting(location.pathname + location.search, e);
 });
 export default class Router {
     constructor(routes, options = {}) {
@@ -55,7 +55,7 @@ export default class Router {
         }
         return this.routes.find((route) => route.path.exec(path));
     }
-    async doRouting(to = location.pathname, e) {
+    async doRouting(to = location.pathname + location.search, e) {
         dispatchEvent(new Event("beforeRouting"));
         const from = this.oldRoute ?? to;
         const route = this.getMatchingRoute(to);
@@ -131,7 +131,7 @@ export default class Router {
         }
     }
     go(path, state, params = "") {
-        this.oldRoute = location.pathname;
+        this.oldRoute = location.pathname + location.search;
         const newPath = base + path + params;
         // Only navigate when the path differs
         if (newPath !== this.oldRoute) {

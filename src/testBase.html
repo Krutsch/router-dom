@@ -88,16 +88,16 @@
 
           it("goes to the correct route when clicking on an element", () => {
             $("#home").click();
-            expect(location.pathname).to.equal(base + "/");
+            expect(location.pathname + location.search).to.equal(base + "/");
 
             $("#a").click();
-            expect(location.pathname).to.equal(base + "/a");
+            expect(location.pathname + location.search).to.equal(base + "/a");
 
             $("#b").click();
-            expect(location.pathname).to.equal(base + "/b");
+            expect(location.pathname + location.search).to.equal(base + "/b");
 
             $("#home").click();
-            expect(location.pathname).to.equal(base + "/");
+            expect(location.pathname + location.search).to.equal(base + "/");
           });
 
           it("goes to the correct route when clicking on an element - with params", () => {

@@ -13,7 +13,7 @@ if (base.endsWith("/")) {
 
 addEventListener("popstate", async (e) => {
   //@ts-expect-error
-  router.doRouting(location.pathname, e);
+  router.doRouting(location.pathname + location.search, e);
 });
 
 export default class Router {
@@ -69,7 +69,10 @@ export default class Router {
     return this.routes.find((route) => route.path.exec(path));
   }
 
-  private async doRouting(to: string = location.pathname, e?: PopStateEvent) {
+  private async doRouting(
+    to: string = location.pathname + location.search,
+    e?: PopStateEvent
+  ) {
     dispatchEvent(new Event("beforeRouting"));
     const from = this.oldRoute ?? to;
     const route = this.getMatchingRoute(to);
@@ -158,7 +161,7 @@ export default class Router {
   }
 
   go(path: string, state: LooseObject, params = "") {
-    this.oldRoute = location.pathname;
+    this.oldRoute = location.pathname + location.search;
     const newPath = base + path + params;
 
     // Only navigate when the path differs
