@@ -108,7 +108,7 @@ export default class Router {
                     setReuseElements(false);
                     const parent = route.isChildOf;
                     if (parent.templateUrl) {
-                        handleTemplate(parent, outletSelector);
+                        await handleTemplate(parent, outletSelector);
                     }
                     else if (parent.element) {
                         render(html `<div data-outlet>${parent.element}</div>`, outletSelector, false);
@@ -116,7 +116,7 @@ export default class Router {
                     setReuseElements(true);
                 }
                 if (route?.templateUrl) {
-                    handleTemplate(route, $(outletSelector).querySelector(outletSelector) ?? outletSelector);
+                    await handleTemplate(route, $(outletSelector).querySelector(outletSelector) ?? outletSelector);
                 }
                 else if (route?.element) {
                     render(html `<div data-outlet>${route?.element}</div>`, $(outletSelector).querySelector(outletSelector) ?? outletSelector, false);

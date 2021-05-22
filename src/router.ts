@@ -134,7 +134,7 @@ export default class Router {
           setReuseElements(false);
           const parent = route.isChildOf!;
           if (parent.templateUrl) {
-            handleTemplate(parent, outletSelector);
+            await handleTemplate(parent, outletSelector);
           } else if (parent.element) {
             render(
               html`<div data-outlet>${parent.element}</div>`,
@@ -146,7 +146,7 @@ export default class Router {
         }
 
         if (route?.templateUrl) {
-          handleTemplate(
+          await handleTemplate(
             route,
             $(outletSelector)!.querySelector(outletSelector) ?? outletSelector
           );
