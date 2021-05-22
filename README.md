@@ -4,11 +4,11 @@
 >
 > - it helps to reduce the delay between your pages, to minimize browser HTTP requests and enhance your user's web experience.
 > - library agnostic.
-> - simple: define your routes, start to listen to route changes.
+> - simple: define your routes, start to listen global event and to route changes.
 > - base href support.
 > - opt-in errorHandler and formHandler.
 > - support in all modern browsers.
-> - RegExp Routes
+> - RegExp and nested Routes
 
 ## Demo
 
@@ -54,7 +54,10 @@ or via CDN:
 
 ### Constructor
 
-The router class takes an array with at least one entry. Only the path is mandatory. Either a template or and element will be rendered in your element with attribute `data-outlet`. The second argument is the optional object options: it can take a general errorHandler and a formHandler. If there is a formHandler, form submits will handled via attributes on the form element and fetch.
+The router class takes an array with at least one entry. Only the path is mandatory.<br>
+Either a template or and element will be rendered in your element with attribute `data-outlet`.<br>
+You can also specifiy one-level of children.<br>
+The second argument is the optional object options: it can take a general errorHandler and a formHandler. If there is a formHandler, form submits will handled via attributes on the form element and fetch.
 
 ```js
 const router = new Router([

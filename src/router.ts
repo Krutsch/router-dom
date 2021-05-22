@@ -1,6 +1,6 @@
 import type { MatchResult } from "path-to-regexp";
 import { pathToRegexp, match } from "path-to-regexp";
-import { render, html, hydro, $, $$ } from "hydro-js";
+import { render, html, hydro, $, $$, setReuseElements } from "hydro-js";
 
 let router: Router;
 const outletSelector = "[data-outlet]";
@@ -22,6 +22,22 @@ export default class Router {
   oldRoute: undefined | string;
 
   constructor(routes: [RouteParam, ...RouteParam[]], options: Options = {}) {
+    // Handle nested routes
+    const length = routes.length - 1;
+    for (let i = length; i >= 0; i--) {
+      const route = routes[i];
+      if (route.children) {
+        route.children.forEach((child, idx) => {
+          routes.splice(i + idx, 0, {
+            ...child,
+            path: `${route.path}/${child.path}`,
+            isChildOf: route,
+          } as RouteParam);
+        });
+        Reflect.deleteProperty(route, "children");
+      }
+    }
+
     const newRoutes = routes.map((route) => {
       return {
         ...route,
@@ -113,32 +129,31 @@ export default class Router {
         await route[cycles.beforeEnter]?.(props);
 
         // Handle template / element
-        if (route?.templateUrl) {
-          let cacheObj = fetchCache.get(route);
-          if (!fetchCache.has(route) || cacheObj?.promise === null) {
-            cacheObj!.controller?.abort();
 
-            const data = await fetch(route.templateUrl);
-            if (!cacheObj) {
-              cacheObj = {
-                html: await data.text(),
-              };
-              fetchCache.set(route, cacheObj);
-            } else {
-              cacheObj.html = await data.text();
-            }
+        if (!!route.isChildOf) {
+          setReuseElements(false);
+          const parent = route.isChildOf!;
+          if (parent.templateUrl) {
+            handleTemplate(parent, outletSelector);
+          } else if (parent.element) {
+            render(
+              html`<div data-outlet>${parent.element}</div>`,
+              outletSelector,
+              false
+            );
           }
-          Reflect.deleteProperty(cacheObj!, "controller");
+          setReuseElements(true);
+        }
 
-          render(
-            html`<div data-outlet>${await cacheObj!.html}</div>`,
-            outletSelector,
-            false
+        if (route?.templateUrl) {
+          handleTemplate(
+            route,
+            $(outletSelector)!.querySelector(outletSelector) ?? outletSelector
           );
         } else if (route?.element) {
           render(
             html`<div data-outlet>${route?.element}</div>`,
-            outletSelector,
+            $(outletSelector)!.querySelector(outletSelector) ?? outletSelector,
             false
           );
         } else {
@@ -280,6 +295,26 @@ new MutationObserver((entries) => {
   }
 }).observe(document.body, { childList: true, subtree: true });
 
+async function handleTemplate(route: Route, where: string | Element) {
+  let cacheObj = fetchCache.get(route);
+  if (!fetchCache.has(route) || cacheObj?.promise === null) {
+    cacheObj!.controller?.abort();
+
+    const data = await fetch(route.templateUrl!);
+    if (!cacheObj) {
+      cacheObj = {
+        html: await data.text(),
+      };
+      fetchCache.set(route, cacheObj);
+    } else {
+      cacheObj.html = await data.text();
+    }
+  }
+  Reflect.deleteProperty(cacheObj!, "controller");
+
+  render(html`<div data-outlet>${await cacheObj!.html}</div>`, where, false);
+}
+
 const enum cycles {
   leave = "leave",
   beforeEnter = "beforeEnter",
@@ -294,8 +329,10 @@ interface RouteBasic {
 }
 interface RouteParam extends RouteBasic {
   path: string;
+  children?: Array<RouteParam>;
 }
 interface Route extends RouteBasic {
+  isChildOf?: Route;
   path: RegExp;
   originalPath: string;
 }

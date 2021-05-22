@@ -28,8 +28,10 @@ interface RouteBasic {
 }
 interface RouteParam extends RouteBasic {
     path: string;
+    children?: Array<RouteParam>;
 }
 interface Route extends RouteBasic {
+    isChildOf?: Route;
     path: RegExp;
     originalPath: string;
 }

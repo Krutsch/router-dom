@@ -1,5 +1,5 @@
 import { pathToRegexp, match } from "path-to-regexp";
-import { render, html, hydro, $, $$ } from "hydro-js";
+import { render, html, hydro, $, $$, setReuseElements } from "hydro-js";
 let router;
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
@@ -14,6 +14,21 @@ addEventListener("popstate", async (e) => {
 });
 export default class Router {
     constructor(routes, options = {}) {
+        // Handle nested routes
+        const length = routes.length - 1;
+        for (let i = length; i >= 0; i--) {
+            const route = routes[i];
+            if (route.children) {
+                route.children.forEach((child, idx) => {
+                    routes.splice(i + idx, 0, {
+                        ...child,
+                        path: `${route.path}/${child.path}`,
+                        isChildOf: route,
+                    });
+                });
+                Reflect.deleteProperty(route, "children");
+            }
+        }
         const newRoutes = routes.map((route) => {
             return {
                 ...route,
@@ -89,26 +104,22 @@ export default class Router {
                 // Trigger beforeEnter
                 await route["beforeEnter" /* beforeEnter */]?.(props);
                 // Handle template / element
-                if (route?.templateUrl) {
-                    let cacheObj = fetchCache.get(route);
-                    if (!fetchCache.has(route) || cacheObj?.promise === null) {
-                        cacheObj.controller?.abort();
-                        const data = await fetch(route.templateUrl);
-                        if (!cacheObj) {
-                            cacheObj = {
-                                html: await data.text(),
-                            };
-                            fetchCache.set(route, cacheObj);
-                        }
-                        else {
-                            cacheObj.html = await data.text();
-                        }
+                if (!!route.isChildOf) {
+                    setReuseElements(false);
+                    const parent = route.isChildOf;
+                    if (parent.templateUrl) {
+                        handleTemplate(parent, outletSelector);
                     }
-                    Reflect.deleteProperty(cacheObj, "controller");
-                    render(html `<div data-outlet>${await cacheObj.html}</div>`, outletSelector, false);
+                    else if (parent.element) {
+                        render(html `<div data-outlet>${parent.element}</div>`, outletSelector, false);
+                    }
+                    setReuseElements(true);
+                }
+                if (route?.templateUrl) {
+                    handleTemplate(route, $(outletSelector).querySelector(outletSelector) ?? outletSelector);
                 }
                 else if (route?.element) {
-                    render(html `<div data-outlet>${route?.element}</div>`, outletSelector, false);
+                    render(html `<div data-outlet>${route?.element}</div>`, $(outletSelector).querySelector(outletSelector) ?? outletSelector, false);
                 }
                 else {
                     // Clear outlet
@@ -235,3 +246,21 @@ new MutationObserver((entries) => {
         }
     }
 }).observe(document.body, { childList: true, subtree: true });
+async function handleTemplate(route, where) {
+    let cacheObj = fetchCache.get(route);
+    if (!fetchCache.has(route) || cacheObj?.promise === null) {
+        cacheObj.controller?.abort();
+        const data = await fetch(route.templateUrl);
+        if (!cacheObj) {
+            cacheObj = {
+                html: await data.text(),
+            };
+            fetchCache.set(route, cacheObj);
+        }
+        else {
+            cacheObj.html = await data.text();
+        }
+    }
+    Reflect.deleteProperty(cacheObj, "controller");
+    render(html `<div data-outlet>${await cacheObj.html}</div>`, where, false);
+}
