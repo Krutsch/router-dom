@@ -3,13 +3,14 @@ export default class Router {
     routes: [Route, ...Route[]];
     oldRoute: undefined | string;
     constructor(routes: [RouteParam, ...RouteParam[]], options?: Options);
+    private getMatchingRoute;
     private doRouting;
     go(path: string, state: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;
     modifyRoute(path: string, newRoute: RouteParam): void;
     changeOptions(options: Options): void;
-    getParams(search?: string): {
+    static getParams(search?: string): {
         [k: string]: string;
     };
 }
@@ -39,7 +40,7 @@ interface Options {
 interface RoutingProps {
     from: string;
     to: string;
-    state: LooseObject;
+    state?: LooseObject;
     params?: LooseObject;
 }
 declare type LooseObject = Record<keyof any, any>;

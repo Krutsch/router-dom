@@ -122,7 +122,7 @@
             router.go("/b?q=test value");
             expect(location.pathname).to.equal(base + "/b");
             expect(location.search).to.equal("?q=test%20value");
-            expect(router.getParams()).to.deep.equal({ q: "test value" });
+            expect(Router.getParams()).to.deep.equal({ q: "test value" });
           });
 
           it("sends data via API", () => {
@@ -242,8 +242,8 @@
               const props = {
                 from: "/",
                 to: "/a?q=testing",
-                awesome: 42,
                 params: { q: "testing" },
+                state: { awesome: 42 },
               };
               $("#data").click();
               await sleep(50);
@@ -253,8 +253,8 @@
               const props = {
                 from: "/",
                 to: "/a?q=testing",
-                awesome: 42,
                 params: { q: "testing" },
+                state: { awesome: 42 },
               };
               router.go("/a?q=testing", { awesome: 42 });
               await sleep(50);
@@ -264,8 +264,8 @@
               const props = {
                 from: "/",
                 to: "/a?q=testing",
-                awesome: 42,
                 params: { q: "testing" },
+                state: { awesome: 42 },
               };
               router.go("/a", { awesome: 42 }, "?q=testing");
               await sleep(50);
@@ -278,12 +278,12 @@
   </head>
   <body>
     <a id="home" href="/">Home</a>
-    <a id="a" data-href="/a">a</a>
-    <a id="b" data-href="/b">b</a>
-    <a id="id" data-href="/b/4">b</a>
+    <a id="a" href="/a">a</a>
+    <a id="b" href="/b">b</a>
+    <a id="id" href="/b/4">b</a>
     <a id="other" href="https://krutsch.netlify.app">Page</a>
-    <a id="param" data-href="/a?q=testing">a</a>
-    <a id="data" data-href="/a?q=testing" data="data">a</a>
+    <a id="param" href="/a?q=testing">a</a>
+    <a id="data" href="/a?q=testing" data="data">a</a>
 
     <div data-outlet></div>
   </body>

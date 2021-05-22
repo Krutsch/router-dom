@@ -1,6 +1,6 @@
 # router-dom
 
-> A lightweight router for single-page applications.
+> A lightweight router for single-page applications with faster subsequent page-loads by prefetching links during idle time if the user is not saving data.
 >
 > - it helps to reduce the delay between your pages, to minimize browser HTTP requests and enhance your user's web experience.
 > - library agnostic.
@@ -8,6 +8,7 @@
 > - base href support.
 > - opt-in errorHandler and formHandler.
 > - support in all modern browsers.
+> - RegExp Routes
 
 ## Demo
 
@@ -27,23 +28,22 @@ or via CDN:
 ```html
 <script type="module">
   import Router from "https://cdn.skypack.dev/router-dom";
+  new Router(...) // see Constructor Documentation
 </script>
 ```
 
 ## Usage
 
-Use the href attribute in order to help `quicklink` prefetching the resource and use data-href as routing path.
-
 ```html
 <a href="/">Home</a>
-<a href="about.html" data-href="/about">About</a>
+<a href="/about">About</a>
+
 <div data-outlet></div>
 ```
 
 ## Dependencies
 
 [path-to-regexp](https://github.com/pillarjs/path-to-regexp): Turn a path string such as '/user/:name' into a regular expression<br>
-[quicklink](https://github.com/GoogleChromeLabs/quicklink): Faster subsequent page-loads by prefetching in-viewport links during idle time <br>
 [hydro-js](https://github.com/Krutsch/hydro-js): Renders the view. In order to pass state via an anchor element (data attribute), a mapping on the hydro object is needed.<br>
 
 ## Documentation
@@ -64,13 +64,13 @@ const router = new Router([
   {
     path: "/about",
     templateUrl: "/about.html",
-    leave: ({ from, to, state, params }) => {},
+    leave: ({ from, to, params, state }) => {},
   },
   {
     path: "/contact/:name",
     element: html`<h2>Drop a message on [...]</h2>`,
-    beforeEnter: ({ from, to, state, params }) => {},
-    afterEnter: ({ from, to, state, params }) => {},
+    beforeEnter: ({ from, to, params, state }) => {},
+    afterEnter: ({ from, to, params, state }) => {},
   },
 ]);
 ```
@@ -95,10 +95,6 @@ const router = new Router([
 
 - Replaces the router options.
 
-### getParams
+### static getParams
 
 - Returns the params as key-value pair.
-
-## To Do
-
-- Add nested routes

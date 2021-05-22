@@ -1,17 +1,15 @@
-import { listen } from "quicklink";
-import { pathToRegexp } from "path-to-regexp";
+import { pathToRegexp, match } from "path-to-regexp";
 import { render, html, hydro, $, $$ } from "hydro-js";
-listen();
 let router;
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
-const flagsRegex = /:\w+/g;
+const fetchCache = new WeakMap();
 let base = $("base")?.getAttribute("href") || "";
 if (base.endsWith("/")) {
     base = [...base].slice(0, -1).join("");
 }
 addEventListener("popstate", async (e) => {
-    //@ts-ignore
+    //@ts-expect-error
     router.doRouting(location.pathname, e);
 });
 export default class Router {
@@ -26,28 +24,59 @@ export default class Router {
         this.routes = newRoutes;
         this.options = options;
         router = this;
+        // Prefetch resources
+        this.routes.forEach((route) => {
+            //@ts-expect-error
+            if (route.templateUrl && !navigator.connection?.saveData) {
+                const controller = new AbortController();
+                const cache = { promise: null, controller };
+                fetchCache.set(route, cache);
+                //@ts-expect-error
+                requestIdleCallback(() => {
+                    cache.promise = fetch(route.templateUrl, {
+                        signal: controller.signal,
+                    });
+                    cache.promise
+                        .then((res) => res.text())
+                        .then((_html) => {
+                        cache.html = _html;
+                    })
+                        .catch(async (err) => {
+                        await this.options.errorHandler?.(err);
+                    });
+                });
+            }
+        });
         this.doRouting();
+    }
+    getMatchingRoute(path) {
+        if (path.startsWith(".")) {
+            path = path.replace(".", "");
+        }
+        return this.routes.find((route) => route.path.exec(path));
     }
     async doRouting(to = location.pathname, e) {
         dispatchEvent(new Event("beforeRouting"));
         const from = this.oldRoute ?? to;
-        const route = getMatchingRoute(to);
+        const route = this.getMatchingRoute(to);
         if (route) {
             try {
-                const [_, ...values] = to.match(route.path);
-                const params = Array.from(route.originalPath.matchAll(flagsRegex))
-                    .flat()
-                    .map((i) => i.replace(":", ""))
-                    .reduce((state, key, idx) => {
-                    state[key] = values[idx];
-                    return state;
-                }, {});
-                const allParams = { ...this.getParams(), ...params };
+                const { params } = match(route.originalPath, {
+                    decode: decodeURIComponent,
+                })(to);
+                const allParams = {
+                    ...Router.getParams(),
+                    ...Object.fromEntries(Object.entries(params)
+                        .map((pair) => Number.isNaN(Number(pair[0])) && pair)
+                        .filter(Boolean)),
+                };
                 const props = {
                     from: from.replace(base, ""),
                     to: to.replace(base, ""),
                     ...(Object.keys(allParams).length ? { params: allParams } : {}),
-                    ...history.state,
+                    ...(history.state && Object.keys(history.state).length
+                        ? { state: history.state }
+                        : {}),
                 };
                 // Trigger leave
                 if (this.oldRoute) {
@@ -61,9 +90,22 @@ export default class Router {
                 await route["beforeEnter" /* beforeEnter */]?.(props);
                 // Handle template / element
                 if (route?.templateUrl) {
-                    const data = await fetch(route.templateUrl);
-                    const _html = await data.text();
-                    render(html `<div data-outlet>${_html}</div>`, outletSelector, false);
+                    let cacheObj = fetchCache.get(route);
+                    if (!fetchCache.has(route) || cacheObj?.promise === null) {
+                        cacheObj.controller?.abort();
+                        const data = await fetch(route.templateUrl);
+                        if (!cacheObj) {
+                            cacheObj = {
+                                html: await data.text(),
+                            };
+                            fetchCache.set(route, cacheObj);
+                        }
+                        else {
+                            cacheObj.html = await data.text();
+                        }
+                    }
+                    Reflect.deleteProperty(cacheObj, "controller");
+                    render(html `<div data-outlet>${await cacheObj.html}</div>`, outletSelector, false);
                 }
                 else if (route?.element) {
                     render(html `<div data-outlet>${route?.element}</div>`, outletSelector, false);
@@ -123,15 +165,9 @@ export default class Router {
     changeOptions(options) {
         this.options = options;
     }
-    getParams(search = location.search) {
+    static getParams(search = location.search) {
         return Object.fromEntries(new URLSearchParams(search));
     }
-}
-function getMatchingRoute(path) {
-    if (path.startsWith(".")) {
-        path = path.replace(".", "");
-    }
-    return router.routes.find((route) => route.path.exec(path));
 }
 function registerAnchorEvent(anchor) {
     if (anchor.getAttribute("href")?.startsWith("http"))
@@ -140,7 +176,7 @@ function registerAnchorEvent(anchor) {
         e.preventDefault();
         const hasData = anchor.getAttribute("data");
         const hydroProp = replaceBars(hasData);
-        let href = anchor.getAttribute("data-href") || anchor.getAttribute("href") || "";
+        const href = anchor.getAttribute("href") || "";
         router.go(href, hasData ? hydro[hydroProp] : void 0);
     });
 }
