@@ -58,19 +58,21 @@ export default class Router {
         const controller = new AbortController();
         const cache = { promise: null, controller } as Cache;
         fetchCache.set(route, cache);
-        //@ts-expect-error
-        requestIdleCallback(() => {
-          cache.promise = fetch(route.templateUrl!, {
-            signal: controller.signal,
-          });
-          (cache.promise as unknown as Promise<Response>)
-            .then((res) => res.text())
-            .then((_html) => {
-              cache.html = _html;
-            })
-            .catch(async (err) => {
-              await this.options.errorHandler?.(err);
+        setTimeout(() => {
+          //@ts-expect-error
+          requestIdleCallback(() => {
+            cache.promise = fetch(route.templateUrl!, {
+              signal: controller.signal,
             });
+            (cache.promise as unknown as Promise<Response>)
+              .then((res) => res.text())
+              .then((_html) => {
+                cache.html = _html;
+              })
+              .catch(async (err) => {
+                await this.options.errorHandler?.(err);
+              });
+          });
         });
       }
     });
