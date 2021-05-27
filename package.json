@@ -37,7 +37,7 @@
   },
   "bugs": "https://github.com/Krutsch/router-dom/issues",
   "dependencies": {
-    "hydro-js": "^1.4.1",
+    "hydro-js": "^1.4.2",
     "path-to-regexp": "^6.2.0"
   }
 }

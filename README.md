@@ -8,7 +8,7 @@
 > - base href support.
 > - opt-in errorHandler and formHandler.
 > - support in all modern browsers.
-> - RegExp and nested Routes
+> - RegExp and nested Routes.
 
 ## Demo
 
