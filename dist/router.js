@@ -113,18 +113,25 @@ export default class Router {
                     setReuseElements(false);
                     const parent = route.isChildOf;
                     if (parent.templateUrl) {
-                        await handleTemplate(parent, outletSelector);
+                        await handleTemplate(parent, $(outletSelector));
                     }
                     else if (parent.element) {
-                        render(html `<div data-outlet>${parent.element}</div>`, outletSelector, false);
+                        const copy = $(outletSelector).cloneNode();
+                        copy.append(html `${parent.element}`);
+                        render(copy, outletSelector, false);
                     }
                     setReuseElements(true);
                 }
                 if (route?.templateUrl) {
-                    await handleTemplate(route, $(outletSelector).querySelector(outletSelector) ?? outletSelector);
+                    await handleTemplate(route, $(outletSelector).querySelector(outletSelector) ??
+                        $(outletSelector));
                 }
                 else if (route?.element) {
-                    render(html `<div data-outlet>${route?.element}</div>`, $(outletSelector).querySelector(outletSelector) ?? outletSelector, false);
+                    const where = $(outletSelector).querySelector(outletSelector) ??
+                        $(outletSelector);
+                    const copy = where.cloneNode();
+                    copy.append(html `${route.element}`);
+                    render(copy, where, false);
                 }
                 else {
                     // Clear outlet
@@ -267,5 +274,7 @@ async function handleTemplate(route, where) {
         }
     }
     Reflect.deleteProperty(cacheObj, "controller");
-    render(html `<div data-outlet>${await cacheObj.html}</div>`, where, false);
+    const copy = where.cloneNode();
+    copy.innerHTML = (await cacheObj.html) || "";
+    render(copy, where, false);
 }

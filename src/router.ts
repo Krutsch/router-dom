@@ -136,13 +136,11 @@ export default class Router {
           setReuseElements(false);
           const parent = route.isChildOf!;
           if (parent.templateUrl) {
-            await handleTemplate(parent, outletSelector);
+            await handleTemplate(parent, $(outletSelector)!);
           } else if (parent.element) {
-            render(
-              html`<div data-outlet>${parent.element}</div>`,
-              outletSelector,
-              false
-            );
+            const copy = $(outletSelector)!.cloneNode();
+            (copy as Element).append(html`${parent.element}`);
+            render(copy, outletSelector, false);
           }
           setReuseElements(true);
         }
@@ -150,14 +148,16 @@ export default class Router {
         if (route?.templateUrl) {
           await handleTemplate(
             route,
-            $(outletSelector)!.querySelector(outletSelector) ?? outletSelector
+            $(outletSelector)!.querySelector(outletSelector) ??
+              $(outletSelector)!
           );
         } else if (route?.element) {
-          render(
-            html`<div data-outlet>${route?.element}</div>`,
-            $(outletSelector)!.querySelector(outletSelector) ?? outletSelector,
-            false
-          );
+          const where =
+            $(outletSelector)!.querySelector(outletSelector) ??
+            $(outletSelector)!;
+          const copy = where.cloneNode();
+          (copy as Element).append(html`${route.element}`);
+          render(copy, where, false);
         } else {
           // Clear outlet
           $(outletSelector)!.textContent = null;
@@ -297,7 +297,7 @@ new MutationObserver((entries) => {
   }
 }).observe(document.body, { childList: true, subtree: true });
 
-async function handleTemplate(route: Route, where: string | Element) {
+async function handleTemplate(route: Route, where: Element) {
   let cacheObj = fetchCache.get(route);
   if (!fetchCache.has(route) || cacheObj?.promise === null) {
     cacheObj!.controller?.abort();
@@ -314,7 +314,9 @@ async function handleTemplate(route: Route, where: string | Element) {
   }
   Reflect.deleteProperty(cacheObj!, "controller");
 
-  render(html`<div data-outlet>${await cacheObj!.html}</div>`, where, false);
+  const copy = where.cloneNode();
+  (copy as Element).innerHTML = (await cacheObj!.html) || "";
+  render(copy, where, false);
 }
 
 const enum cycles {
