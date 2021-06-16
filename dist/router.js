@@ -275,6 +275,6 @@ async function handleTemplate(route, where) {
     }
     Reflect.deleteProperty(cacheObj, "controller");
     const copy = where.cloneNode();
-    copy.innerHTML = (await cacheObj.html) || "";
+    copy.append(html `${(await cacheObj.html) || ""}`);
     render(copy, where, false);
 }

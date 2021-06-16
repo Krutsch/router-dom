@@ -1,6 +1,6 @@
 {
   "name": "router-dom",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "A lightweight router for everyone",
   "type": "module",
   "main": "dist/router.js",
@@ -28,7 +28,7 @@
     "@esm-bundle/chai": "^4.3.4",
     "@web/test-runner": "^0.13.11",
     "@web/test-runner-playwright": "^0.8.6",
-    "esbuild": "^0.12.8",
+    "esbuild": "^0.12.9",
     "typescript": "^4.3.2"
   },
   "repository": {
