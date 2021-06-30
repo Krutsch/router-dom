@@ -20,7 +20,7 @@
   "scripts": {
     "start": "tsc",
     "update": "npx npm-check-updates -u && npx typesync && npm i && npm outdated",
-    "test": "tsc && esbuild dist/router.js --bundle --format=esm --outfile=src/bundle.js && wtr src/tests/testScroll.html --node-resolve --playwright --browsers chromium firefox webkit && node -e \"fs.rmSync('src/bundle.js')\""
+    "test": "tsc && esbuild dist/router.js --bundle --format=esm --outfile=src/bundle.js && wtr src/tests/*.html --node-resolve --playwright --browsers chromium firefox webkit && node -e \"fs.rmSync('src/bundle.js')\""
   },
   "author": "Fabian Krutsch <f.krutsch@gmx.de> (https://krutsch.netlify.app/)",
   "license": "MIT",
