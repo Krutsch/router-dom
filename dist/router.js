@@ -152,18 +152,22 @@ export default class Router {
                 }
             }
             finally {
+                dispatchEvent(new Event("afterRouting"));
                 // Reload -> restore scroll position
                 if (!this.oldRoute &&
                     route.restoreScrollOnReload &&
                     sessionStorage.getItem(storageKey)) {
-                    const [x, y] = sessionStorage
+                    const [left, top] = sessionStorage
                         .getItem(storageKey)
                         .split(" ")
                         .map(Number);
                     sessionStorage.removeItem(storageKey);
-                    scroll(x, y);
+                    scrollTo({
+                        top,
+                        left,
+                        behavior: this.options.scrollBehavior || "auto",
+                    });
                 }
-                dispatchEvent(new Event("afterRouting"));
             }
         }
     }

@@ -178,21 +178,25 @@ export default class Router {
           console.error(err, e);
         }
       } finally {
+        dispatchEvent(new Event("afterRouting"));
+
         // Reload -> restore scroll position
         if (
           !this.oldRoute &&
           route.restoreScrollOnReload &&
           sessionStorage.getItem(storageKey)
         ) {
-          const [x, y] = sessionStorage
+          const [left, top] = sessionStorage
             .getItem(storageKey)!
             .split(" ")
             .map(Number);
           sessionStorage.removeItem(storageKey);
-          scroll(x, y);
+          scrollTo({
+            top,
+            left,
+            behavior: this.options.scrollBehavior || "auto",
+          });
         }
-
-        dispatchEvent(new Event("afterRouting"));
       }
     }
   }
@@ -364,6 +368,7 @@ interface Route extends RouteBasic {
 interface Options {
   errorHandler?(err: Error, e?: PopStateEvent | Event): Promise<any> | void;
   formHandler?(res: Response, e: Event): Promise<any> | void;
+  scrollBehavior?: ScrollBehavior;
 }
 interface RoutingProps {
   from: string;

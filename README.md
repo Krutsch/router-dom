@@ -57,7 +57,7 @@ or via CDN:
 The router class takes an array with at least one entry. Only the path is mandatory.<br>
 Either a template or and element will be rendered in your element with attribute `data-outlet`.<br>
 You can also specifiy one-level of children.<br> One more interesting property is the `restoreScrollOnReload`.
-The second argument is the optional object options: it can take a general errorHandler and a formHandler. If there is a formHandler, form submits will handled via attributes on the form element and fetch.
+The second argument is the optional object options: it can take a general errorHandler, a formHandler and the scrollBehavior. If there is a formHandler, form submits will handled via attributes on the form element and fetch.
 
 ```js
 const router = new Router([

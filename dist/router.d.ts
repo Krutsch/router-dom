@@ -39,6 +39,7 @@ interface Route extends RouteBasic {
 interface Options {
     errorHandler?(err: Error, e?: PopStateEvent | Event): Promise<any> | void;
     formHandler?(res: Response, e: Event): Promise<any> | void;
+    scrollBehavior?: ScrollBehavior;
 }
 interface RoutingProps {
     from: string;
