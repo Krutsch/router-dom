@@ -3,6 +3,7 @@ import { pathToRegexp, match } from "path-to-regexp";
 import { render, html, hydro, $, $$, setReuseElements } from "hydro-js";
 
 let router: Router;
+const storageKey = "router-scroll";
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
 const fetchCache = new WeakMap<Route, Cache>();
@@ -15,6 +16,11 @@ addEventListener("popstate", async (e) => {
   //@ts-expect-error
   router.doRouting(location.pathname + location.search, e);
 });
+
+// Reload -> store scrollPosition
+addEventListener("beforeunload", () =>
+  sessionStorage.setItem(storageKey, `${scrollX} ${scrollY}`)
+);
 
 export default class Router {
   options: Options;
@@ -172,6 +178,20 @@ export default class Router {
           console.error(err, e);
         }
       } finally {
+        // Reload -> restore scroll position
+        if (
+          !this.oldRoute &&
+          route.restoreScrollOnReload &&
+          sessionStorage.getItem(storageKey)
+        ) {
+          const [x, y] = sessionStorage
+            .getItem(storageKey)!
+            .split(" ")
+            .map(Number);
+          sessionStorage.removeItem(storageKey);
+          scroll(x, y);
+        }
+
         dispatchEvent(new Event("afterRouting"));
       }
     }
@@ -330,6 +350,7 @@ interface RouteBasic {
   [cycles.leave]?(routingProps: RoutingProps): Promise<any> | void;
   [cycles.beforeEnter]?(routingProps: RoutingProps): Promise<any> | void;
   [cycles.afterEnter]?(routingProps: RoutingProps): Promise<any> | void;
+  restoreScrollOnReload?: Boolean;
 }
 interface RouteParam extends RouteBasic {
   path: string;

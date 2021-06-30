@@ -1,6 +1,6 @@
 {
   "name": "router-dom",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "A lightweight router for everyone",
   "type": "module",
   "main": "dist/router.js",
@@ -20,16 +20,16 @@
   "scripts": {
     "start": "tsc",
     "update": "npx npm-check-updates -u && npx typesync && npm i && npm outdated",
-    "test": "tsc && esbuild dist/router.js --bundle --format=esm --outfile=src/bundle.js && wtr src/tests/*.html --node-resolve --playwright --browsers chromium firefox webkit && node -e \"fs.rmSync('src/bundle.js')\""
+    "test": "tsc && esbuild dist/router.js --bundle --format=esm --outfile=src/bundle.js && wtr src/tests/testScroll.html --node-resolve --playwright --browsers chromium firefox webkit && node -e \"fs.rmSync('src/bundle.js')\""
   },
   "author": "Fabian Krutsch <f.krutsch@gmx.de> (https://krutsch.netlify.app/)",
   "license": "MIT",
   "devDependencies": {
     "@esm-bundle/chai": "^4.3.4",
-    "@web/test-runner": "^0.13.11",
+    "@web/test-runner": "^0.13.13",
     "@web/test-runner-playwright": "^0.8.6",
-    "esbuild": "^0.12.9",
-    "typescript": "^4.3.2"
+    "esbuild": "^0.12.12",
+    "typescript": "^4.3.4"
   },
   "repository": {
     "type": "git",
@@ -37,7 +37,7 @@
   },
   "bugs": "https://github.com/Krutsch/router-dom/issues",
   "dependencies": {
-    "hydro-js": "^1.4.3",
+    "hydro-js": "^1.4.4",
     "path-to-regexp": "^6.2.0"
   }
 }

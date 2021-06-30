@@ -25,6 +25,7 @@ interface RouteBasic {
     [cycles.leave]?(routingProps: RoutingProps): Promise<any> | void;
     [cycles.beforeEnter]?(routingProps: RoutingProps): Promise<any> | void;
     [cycles.afterEnter]?(routingProps: RoutingProps): Promise<any> | void;
+    restoreScrollOnReload?: Boolean;
 }
 interface RouteParam extends RouteBasic {
     path: string;

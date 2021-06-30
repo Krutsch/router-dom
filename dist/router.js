@@ -1,6 +1,7 @@
 import { pathToRegexp, match } from "path-to-regexp";
 import { render, html, hydro, $, $$, setReuseElements } from "hydro-js";
 let router;
+const storageKey = "router-scroll";
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
 const fetchCache = new WeakMap();
@@ -12,6 +13,8 @@ addEventListener("popstate", async (e) => {
     //@ts-expect-error
     router.doRouting(location.pathname + location.search, e);
 });
+// Reload -> store scrollPosition
+addEventListener("beforeunload", () => sessionStorage.setItem(storageKey, `${scrollX} ${scrollY}`));
 export default class Router {
     options;
     routes;
@@ -149,6 +152,17 @@ export default class Router {
                 }
             }
             finally {
+                // Reload -> restore scroll position
+                if (!this.oldRoute &&
+                    route.restoreScrollOnReload &&
+                    sessionStorage.getItem(storageKey)) {
+                    const [x, y] = sessionStorage
+                        .getItem(storageKey)
+                        .split(" ")
+                        .map(Number);
+                    sessionStorage.removeItem(storageKey);
+                    scroll(x, y);
+                }
                 dispatchEvent(new Event("afterRouting"));
             }
         }
