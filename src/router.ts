@@ -65,7 +65,6 @@ export default class Router {
         const cache = { promise: null, controller } as Cache;
         fetchCache.set(route, cache);
         setTimeout(() => {
-          //@ts-expect-error
           requestIdleCallback(() => {
             cache.promise = fetch(route.templateUrl!, {
               signal: controller.signal,
@@ -366,7 +365,7 @@ interface Route extends RouteBasic {
   originalPath: string;
 }
 interface Options {
-  errorHandler?(err: Error, e?: PopStateEvent | Event): Promise<any> | void;
+  errorHandler?(err: unknown, e?: PopStateEvent | Event): Promise<any> | void;
   formHandler?(res: Response, e: Event): Promise<any> | void;
   scrollBehavior?: ScrollBehavior;
 }

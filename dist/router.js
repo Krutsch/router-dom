@@ -53,7 +53,6 @@ export default class Router {
                 const cache = { promise: null, controller };
                 fetchCache.set(route, cache);
                 setTimeout(() => {
-                    //@ts-expect-error
                     requestIdleCallback(() => {
                         cache.promise = fetch(route.templateUrl, {
                             signal: controller.signal,
