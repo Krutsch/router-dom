@@ -69,6 +69,37 @@
             await sleep(50);
             expect(window.scrollY).to.equal(0);
           });
+
+          it("sets scroll to 0 when navigating to another route", async () => {
+            document.body.insertAdjacentHTML(
+              "beforeend",
+              `<div style="height: 2000px;">
+                <a href="/a">A</a>
+                <a href="/b">B</a>
+                <div data-outlet></div>
+              </div>`
+            );
+
+            router = new Router([
+              {
+                path: "/a",
+                element: `<div>A Content</div>`,
+              },
+              {
+                path: "/b",
+                element: `<div>B Content</div>`,
+              },
+            ]);
+
+            router.go("/a");
+            await sleep(50);
+
+            window.scrollTo(0, 600);
+            router.go("/b");
+            await sleep(50);
+
+            expect(window.scrollY).to.equal(0);
+          });
         });
       });
     </script>
