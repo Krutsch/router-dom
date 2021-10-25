@@ -121,6 +121,13 @@ export default class Router {
             : {}),
         };
 
+        // Reset Scroll, just like Browser
+        scrollTo({
+          top: 0,
+          left: 0,
+          behavior: this.options.scrollBehavior || "auto",
+        });
+
         // Trigger leave
         if (this.oldRoute) {
           const oldRoute = this.routes.find((route) =>
@@ -135,12 +142,6 @@ export default class Router {
         // Trigger beforeEnter
         await route[cycles.beforeEnter]?.(props);
 
-        // Reset Scroll, just like Browser
-        scrollTo({
-          top: 0,
-          left: 0,
-          behavior: this.options.scrollBehavior || "auto",
-        });
         // Handle template / element
         if (!!route.isChildOf) {
           setReuseElements(false);
