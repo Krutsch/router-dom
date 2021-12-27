@@ -12,9 +12,16 @@ if (base.endsWith("/")) {
   base = [...base].slice(0, -1).join("");
 }
 
+interface CustomWindow extends Window {
+  isHMR: boolean;
+}
+declare var window: CustomWindow;
+
 addEventListener("popstate", async (e) => {
-  //@ts-expect-error
-  router.doRouting(location.pathname + location.search, e);
+  if (!window.isHMR) {
+    //@ts-expect-error
+    router.doRouting(location.pathname + location.search, e);
+  }
 });
 
 // Reload -> store scrollPosition
@@ -344,7 +351,11 @@ async function handleTemplate(route: Route, where: Element) {
   Reflect.deleteProperty(cacheObj!, "controller");
 
   const copy = where.cloneNode();
-  (copy as Element).append(html`${(await cacheObj!.html) || ""}`);
+  (copy as Element).append(
+    window.isHMR
+      ? html`${await (await fetch(route.templateUrl!)).text()}`
+      : html`${(await cacheObj!.html) || ""}`
+  );
   render(copy, where, false);
 }
 

@@ -10,8 +10,10 @@ if (base.endsWith("/")) {
     base = [...base].slice(0, -1).join("");
 }
 addEventListener("popstate", async (e) => {
-    //@ts-expect-error
-    router.doRouting(location.pathname + location.search, e);
+    if (!window.isHMR) {
+        //@ts-expect-error
+        router.doRouting(location.pathname + location.search, e);
+    }
 });
 // Reload -> store scrollPosition
 addEventListener("beforeunload", () => sessionStorage.setItem(storageKey, `${scrollX} ${scrollY}`));
@@ -298,6 +300,8 @@ async function handleTemplate(route, where) {
     }
     Reflect.deleteProperty(cacheObj, "controller");
     const copy = where.cloneNode();
-    copy.append(html `${(await cacheObj.html) || ""}`);
+    copy.append(window.isHMR
+        ? html `${await (await fetch(route.templateUrl)).text()}`
+        : html `${(await cacheObj.html) || ""}`);
     render(copy, where, false);
 }
