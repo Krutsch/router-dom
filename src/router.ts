@@ -18,10 +18,8 @@ interface CustomWindow extends Window {
 declare var window: CustomWindow;
 
 addEventListener("popstate", async (e) => {
-  if (!window.isHMR) {
-    //@ts-expect-error
-    router.doRouting(location.pathname + location.search, e);
-  }
+  //@ts-expect-error
+  router.doRouting(location.pathname + location.search, e);
 });
 
 // Reload -> store scrollPosition

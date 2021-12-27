@@ -1,6 +1,6 @@
 {
   "name": "router-dom",
-  "version": "2.2.7",
+  "version": "2.2.8",
   "description": "A lightweight router for everyone",
   "type": "module",
   "main": "dist/router.js",

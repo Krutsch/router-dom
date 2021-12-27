@@ -10,10 +10,8 @@ if (base.endsWith("/")) {
     base = [...base].slice(0, -1).join("");
 }
 addEventListener("popstate", async (e) => {
-    if (!window.isHMR) {
-        //@ts-expect-error
-        router.doRouting(location.pathname + location.search, e);
-    }
+    //@ts-expect-error
+    router.doRouting(location.pathname + location.search, e);
 });
 // Reload -> store scrollPosition
 addEventListener("beforeunload", () => sessionStorage.setItem(storageKey, `${scrollX} ${scrollY}`));
