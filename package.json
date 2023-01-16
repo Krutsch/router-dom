@@ -28,7 +28,7 @@
     "@esm-bundle/chai": "^4.3.4",
     "@web/test-runner": "^0.15.0",
     "@web/test-runner-playwright": "^0.9.0",
-    "esbuild": "^0.16.1",
+    "esbuild": "^0.17.0",
     "typescript": "^4.5.4"
   },
   "repository": {
