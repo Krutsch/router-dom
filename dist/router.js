@@ -110,12 +110,12 @@ export default class Router {
                 if (this.oldRoute) {
                     const oldRoute = this.routes.find((route) => route.path.exec(this.oldRoute));
                     if (oldRoute) {
-                        await oldRoute["leave" /* leave */]?.(props);
+                        await oldRoute["leave" /* cycles.leave */]?.(props);
                         this.oldRoute = route.originalPath;
                     }
                 }
                 // Trigger beforeEnter
-                await route["beforeEnter" /* beforeEnter */]?.(props);
+                await route["beforeEnter" /* cycles.beforeEnter */]?.(props);
                 // Handle template / element
                 if (!!route.isChildOf) {
                     setReuseElements(false);
@@ -146,7 +146,7 @@ export default class Router {
                     $(outletSelector).textContent = null;
                 }
                 // Trigger afterEnter
-                await route["afterEnter" /* afterEnter */]?.(props);
+                await route["afterEnter" /* cycles.afterEnter */]?.(props);
             }
             catch (err) {
                 if (this.options.errorHandler) {
