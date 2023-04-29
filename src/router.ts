@@ -364,7 +364,7 @@ const enum cycles {
 }
 interface RouteBasic {
   templateUrl?: string;
-  element?: Node;
+  element?: Node | string;
   [cycles.leave]?(routingProps: RoutingProps): Promise<any> | void;
   [cycles.beforeEnter]?(routingProps: RoutingProps): Promise<any> | void;
   [cycles.afterEnter]?(routingProps: RoutingProps): Promise<any> | void;

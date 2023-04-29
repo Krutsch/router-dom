@@ -72,7 +72,7 @@ const router = new Router([
   },
   {
     path: "/contact/:name",
-    element: html`<h2>Drop a message on [...]</h2>`,
+    element: "<h2>Drop a message on [...]</h2>" // or an actual Node Element,
     beforeEnter: ({ from, to, params, state }) => {},
     afterEnter: ({ from, to, params, state }) => {},
   },
