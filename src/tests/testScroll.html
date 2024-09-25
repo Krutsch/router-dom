@@ -25,7 +25,6 @@
                   <div style="height: 2000px;">A</div>
                   <div>B</div>
                 </div>`,
-                restoreScrollOnReload: true,
               },
             ]);
 
@@ -52,6 +51,7 @@
                   <div style="height: 2000px;">A</div>
                   <div>B</div>
                 </div>`,
+                restoreScroll: false,
               },
             ]);
 
@@ -99,6 +99,42 @@
             await sleep(50);
 
             expect(window.scrollY).to.equal(0);
+          });
+
+          it("does restore the scroll when scrolling, navigating and navigating back", async () => {
+            document.body.insertAdjacentHTML(
+              "beforeend",
+              `<div style="height: 2000px;">
+                <a href="/a">A</a>
+                <a href="/b">B</a>
+                <div data-outlet></div>
+              </div>`
+            );
+
+            router = new Router([
+              {
+                path: "/a",
+                element: `<div>A Content</div>`,
+              },
+              {
+                path: "/b",
+                element: `<div>B Content</div>`,
+              },
+            ]);
+            window.router = router;
+
+            router.go("/a");
+            await sleep(50);
+
+            window.scrollTo(0, 500);
+            router.go("/b");
+            await sleep(50);
+            expect(window.scrollY).to.equal(0);
+
+            history.back();
+            await sleep(50);
+
+            expect(window.scrollY).to.equal(500);
           });
         });
       });

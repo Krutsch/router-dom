@@ -1,6 +1,6 @@
 {
   "name": "router-dom",
-  "version": "2.2.11",
+  "version": "3.0.0",
   "description": "A lightweight router for everyone",
   "type": "module",
   "main": "dist/router.js",
@@ -20,7 +20,7 @@
   "scripts": {
     "start": "tsc",
     "update": "npx npm-check-updates -u && npx typesync && npm i && npm outdated",
-    "test": "tsc && esbuild dist/router.js --bundle --format=esm --outfile=src/bundle.js && wtr src/tests/*.html --node-resolve --playwright --browsers chromium firefox webkit && node -e \"fs.rmSync('src/bundle.js')\""
+    "test": "tsc && wtr src/tests/*.html --node-resolve --playwright --browsers chromium firefox webkit"
   },
   "author": "Fabian Klingenberg <klingenberg.fabian@gmx.de> (https://klingenberg.netlify.app/)",
   "license": "MIT",
@@ -29,7 +29,7 @@
     "@web/test-runner": "^0.19.0",
     "@web/test-runner-playwright": "^0.11.0",
     "esbuild": "^0.24.0",
-    "typescript": "^5.0.4"
+    "typescript": "^5.6.2"
   },
   "repository": {
     "type": "git",
@@ -37,7 +37,7 @@
   },
   "bugs": "https://github.com/Krutsch/router-dom/issues",
   "dependencies": {
-    "hydro-js": "^1.5.14",
-    "path-to-regexp": "^8.0.0"
+    "hydro-js": "^1.5.21",
+    "path-to-regexp": "6.3.0"
   }
 }

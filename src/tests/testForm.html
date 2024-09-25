@@ -32,6 +32,7 @@
                 window.err = err;
                 window.errEvent = e;
               },
+              fetchOptions: { signal: AbortSignal.timeout(1) },
             }
           );
           await sleep(150);
@@ -42,9 +43,9 @@
             expect(window.form).to.be.undefined;
             expect(window.formEvent).to.be.undefined;
             $("#submit").click();
-            await sleep(1900);
-            expect(window.form).to.be.not.undefined;
-            expect(window.formEvent).to.be.not.undefined;
+            await sleep(50);
+            expect(window.err).to.not.be.undefined;
+            expect(window.errEvent).to.not.be.undefined;
           });
         });
       });
@@ -64,6 +65,7 @@
       />
       <input id="submit" type="submit" value="Subscribe!" />
     </form>
+
     <form action="https://httpbin.org/asdasdas" method="get">
       <label for="name2">Enter your name: </label>
       <input type="text" name="name2" id="name2" required value="test" />

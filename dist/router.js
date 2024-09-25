@@ -14,7 +14,7 @@ addEventListener("popstate", async (e) => {
     router.doRouting(location.pathname + location.search, e);
 });
 // Reload -> store scrollPosition
-addEventListener("beforeunload", () => sessionStorage.setItem(storageKey, `${scrollX} ${scrollY}`));
+addEventListener("beforeunload", () => sessionStorage.setItem(`${storageKey}-${location.pathname + location.search}`, `${scrollX} ${scrollY}`));
 export default class Router {
     options;
     routes;
@@ -37,6 +37,7 @@ export default class Router {
         }
         const newRoutes = routes.map((route) => {
             return {
+                restoreScroll: true,
                 ...route,
                 path: pathToRegexp(base + route.path),
                 originalPath: base + route.path,
@@ -82,6 +83,12 @@ export default class Router {
         const from = this.oldRoute ?? to;
         const route = this.getMatchingRoute(to);
         if (route) {
+            // Store position
+            let currStorageKey;
+            if (this.oldRoute) {
+                currStorageKey = `${storageKey}-${from}`;
+                sessionStorage.setItem(currStorageKey, `${scrollX} ${scrollY}`);
+            }
             try {
                 const { params } = match(route.originalPath, {
                     decode: decodeURIComponent,
@@ -100,12 +107,6 @@ export default class Router {
                         ? { state: history.state }
                         : {}),
                 };
-                // Reset Scroll, just like Browser
-                scrollTo({
-                    top: 0,
-                    left: 0,
-                    behavior: this.options.scrollBehavior || "auto",
-                });
                 // Trigger leave
                 if (this.oldRoute) {
                     const oldRoute = this.routes.find((route) => route.path.exec(this.oldRoute));
@@ -145,6 +146,7 @@ export default class Router {
                     // Clear outlet
                     $(outletSelector).textContent = null;
                 }
+                currStorageKey = `${storageKey}-${to}`;
                 // Trigger afterEnter
                 await route["afterEnter" /* cycles.afterEnter */]?.(props);
             }
@@ -157,22 +159,28 @@ export default class Router {
                 }
             }
             finally {
-                dispatchEvent(new Event("afterRouting"));
                 // Reload -> restore scroll position
-                if (!this.oldRoute &&
-                    route.restoreScrollOnReload &&
-                    sessionStorage.getItem(storageKey)) {
+                if (route.restoreScroll && sessionStorage.getItem(currStorageKey)) {
                     const [left, top] = sessionStorage
-                        .getItem(storageKey)
+                        .getItem(currStorageKey)
                         .split(" ")
                         .map(Number);
-                    sessionStorage.removeItem(storageKey);
+                    sessionStorage.removeItem(currStorageKey);
                     scrollTo({
                         top,
                         left,
                         behavior: this.options.scrollBehavior || "auto",
                     });
                 }
+                else {
+                    // Reset Scroll, just like Browser
+                    scrollTo({
+                        top: 0,
+                        left: 0,
+                        behavior: this.options.scrollBehavior || "auto",
+                    });
+                }
+                dispatchEvent(new Event("afterRouting"));
             }
         }
     }
@@ -238,6 +246,7 @@ function registerFormEvent(form) {
             ...(!["HEAD", "GET"].includes(method.toUpperCase())
                 ? { body: new FormData(form) }
                 : {}),
+            ...router.options.fetchOptions,
         })
             .then((res) => router.options.formHandler(res, e))
             .catch(async (err) => {

@@ -25,7 +25,7 @@ interface RouteBasic {
     [cycles.leave]?(routingProps: RoutingProps): Promise<any> | void;
     [cycles.beforeEnter]?(routingProps: RoutingProps): Promise<any> | void;
     [cycles.afterEnter]?(routingProps: RoutingProps): Promise<any> | void;
-    restoreScrollOnReload?: boolean;
+    restoreScroll?: boolean;
 }
 interface RouteParam extends RouteBasic {
     path: string;
@@ -40,6 +40,7 @@ interface Options {
     errorHandler?(err: unknown, e?: PopStateEvent | Event): Promise<any> | void;
     formHandler?(res: Response, e: Event): Promise<any> | void;
     scrollBehavior?: ScrollBehavior;
+    fetchOptions?: RequestInit;
 }
 interface RoutingProps {
     from: string;
