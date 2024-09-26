@@ -4,7 +4,7 @@ export default class Router {
     oldRoute: undefined | string;
     constructor(routes: [RouteParam, ...RouteParam[]], options?: Options);
     private getMatchingRoute;
-    private doRouting;
+    doRouting(to?: string, e?: PopStateEvent): Promise<void>;
     go(path: string, state: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;

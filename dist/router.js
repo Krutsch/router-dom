@@ -10,8 +10,7 @@ if (base.endsWith("/")) {
     base = [...base].slice(0, -1).join("");
 }
 addEventListener("popstate", async (e) => {
-    //@ts-expect-error
-    router.doRouting(location.pathname + location.search, e);
+    router?.doRouting(location.pathname + location.search, e);
 });
 // Reload -> store scrollPosition
 addEventListener("beforeunload", () => sessionStorage.setItem(`${storageKey}-${location.pathname + location.search}`, `${scrollX} ${scrollY}`));
@@ -48,7 +47,7 @@ export default class Router {
         router = this;
         // Prefetch resources
         this.routes.forEach((route) => {
-            //@ts-expect-error
+            // @ts-expect-error
             if (route.templateUrl && !navigator.connection?.saveData) {
                 const controller = new AbortController();
                 const cache = { promise: null, controller };
@@ -174,11 +173,13 @@ export default class Router {
                 }
                 else {
                     // Reset Scroll, just like Browser
-                    scrollTo({
-                        top: 0,
-                        left: 0,
-                        behavior: this.options.scrollBehavior || "auto",
-                    });
+                    if (!window.isHMR) {
+                        scrollTo({
+                            top: 0,
+                            left: 0,
+                            behavior: this.options.scrollBehavior || "auto",
+                        });
+                    }
                 }
                 dispatchEvent(new Event("afterRouting"));
             }

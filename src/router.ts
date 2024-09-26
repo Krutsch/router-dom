@@ -18,8 +18,7 @@ interface CustomWindow extends Window {
 declare var window: CustomWindow;
 
 addEventListener("popstate", async (e) => {
-  //@ts-expect-error
-  router.doRouting(location.pathname + location.search, e);
+  router?.doRouting(location.pathname + location.search, e);
 });
 
 // Reload -> store scrollPosition
@@ -68,7 +67,7 @@ export default class Router {
 
     // Prefetch resources
     this.routes.forEach((route) => {
-      //@ts-expect-error
+      // @ts-expect-error
       if (route.templateUrl && !navigator.connection?.saveData) {
         const controller = new AbortController();
         const cache = { promise: null, controller } as Cache;
@@ -101,7 +100,7 @@ export default class Router {
     return this.routes.find((route) => route.path.exec(path));
   }
 
-  private async doRouting(
+  async doRouting(
     to: string = location.pathname + location.search,
     e?: PopStateEvent
   ) {
@@ -207,11 +206,13 @@ export default class Router {
           });
         } else {
           // Reset Scroll, just like Browser
-          scrollTo({
-            top: 0,
-            left: 0,
-            behavior: this.options.scrollBehavior || "auto",
-          });
+          if (!window.isHMR) {
+            scrollTo({
+              top: 0,
+              left: 0,
+              behavior: this.options.scrollBehavior || "auto",
+            });
+          }
         }
 
         dispatchEvent(new Event("afterRouting"));
