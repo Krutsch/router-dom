@@ -164,16 +164,12 @@ export default class Router {
           setReuseElements(true);
         }
 
+        const where = route.isChildOf
+          ? $(outletSelector)!.querySelector(outletSelector)!
+          : $(outletSelector)!;
         if (route?.templateUrl) {
-          await handleTemplate(
-            route,
-            $(outletSelector)!.querySelector(outletSelector) ??
-              $(outletSelector)!
-          );
+          await handleTemplate(route, where);
         } else if (route?.element) {
-          const where =
-            $(outletSelector)!.querySelector(outletSelector) ??
-            $(outletSelector)!;
           const copy = where.cloneNode();
           (copy as Element).append(html`${route.element}`);
           render(copy, where, false);
@@ -344,7 +340,7 @@ new MutationObserver((entries) => {
 async function handleTemplate(route: Route, where: Element) {
   let cacheObj = fetchCache.get(route);
   if (!fetchCache.has(route) || cacheObj?.promise === null) {
-    cacheObj!.controller?.abort();
+    cacheObj?.controller?.abort();
 
     const data = await fetch(route.templateUrl!);
     if (!cacheObj) {

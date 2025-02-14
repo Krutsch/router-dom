@@ -1,6 +1,6 @@
 {
   "name": "router-dom",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "A lightweight router for everyone",
   "type": "module",
   "main": "dist/router.js",
@@ -26,10 +26,10 @@
   "license": "MIT",
   "devDependencies": {
     "@esm-bundle/chai": "^4.3.4",
-    "@web/test-runner": "^0.19.0",
+    "@web/test-runner": "^0.20.0",
     "@web/test-runner-playwright": "^0.11.0",
     "esbuild": "^0.25.0",
-    "typescript": "^5.6.2"
+    "typescript": "^5.7.3"
   },
   "repository": {
     "type": "git",
@@ -37,7 +37,7 @@
   },
   "bugs": "https://github.com/Krutsch/router-dom/issues",
   "dependencies": {
-    "hydro-js": "^1.5.21",
+    "hydro-js": "^1.5.22",
     "path-to-regexp": "6.3.0"
   }
 }
