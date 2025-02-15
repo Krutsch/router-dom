@@ -356,7 +356,7 @@ async function handleTemplate(route: Route, where: Element) {
 
   const copy = where.cloneNode();
   (copy as Element).append(
-    window.isHMR
+    window.isHMR || !cacheObj?.hasOwnProperty("html")
       ? html`${await (await fetch(route.templateUrl!)).text()}`
       : html`${(await cacheObj!.html) || ""}`
   );

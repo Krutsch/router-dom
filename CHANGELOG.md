@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.3 2025-02-15
+
+- fix html not loading on nested reload
+
 ## 3.0.2 2025-02-14
 
 - fix nested route bug
