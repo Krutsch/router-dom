@@ -22,7 +22,7 @@
     "update": "npx npm-check-updates -u && npx typesync && npm i && npm outdated",
     "test": "tsc && wtr src/tests/*.html --node-resolve --playwright --browsers chromium firefox webkit"
   },
-  "author": "Fabian Klingenberg <klingenberg.fabian@gmx.de> (https://klingenberg.netlify.app/)",
+  "author": "Fabian Klingenberg <klingenberg.fabian@gmx.de> (https://klingenberg.works/)",
   "license": "MIT",
   "devDependencies": {
     "@esm-bundle/chai": "^4.3.4",
