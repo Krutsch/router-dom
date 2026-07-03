@@ -1,6 +1,6 @@
 {
   "name": "router-dom",
-  "version": "3.0.3",
+  "version": "3.1.0",
   "description": "A lightweight router for everyone",
   "type": "module",
   "main": "dist/router.js",
@@ -18,18 +18,20 @@
     "link"
   ],
   "scripts": {
-    "start": "tsc",
+    "build": "tsc",
+    "build:test": "npm run build && esbuild src/router.ts --bundle --format=esm --target=esnext --external:hydro-js --outfile=src/bundle.js",
+    "start": "npm run build",
     "update": "npx npm-check-updates -u && npx typesync && npm i && npm outdated",
-    "test": "tsc && wtr src/tests/*.html --node-resolve --playwright --browsers chromium firefox webkit"
+    "test": "npm run build:test && wtr src/tests/*.html --node-resolve --playwright --browsers chromium firefox webkit"
   },
   "author": "Fabian Klingenberg <klingenberg.fabian@gmx.de> (https://klingenberg.works/)",
   "license": "MIT",
   "devDependencies": {
     "@esm-bundle/chai": "^4.3.4",
-    "@web/test-runner": "^0.20.0",
-    "@web/test-runner-playwright": "^0.11.0",
-    "esbuild": "^0.28.0",
-    "typescript": "^6.0.2"
+    "@web/test-runner": "^0.20.2",
+    "@web/test-runner-playwright": "^0.11.1",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3"
   },
   "repository": {
     "type": "git",
@@ -37,7 +39,10 @@
   },
   "bugs": "https://github.com/Krutsch/router-dom/issues",
   "dependencies": {
-    "hydro-js": "^1.5.22",
-    "path-to-regexp": "8.4.2"
+    "hydro-js": "^1.9.0",
+    "path-to-regexp": "^8.4.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   }
 }

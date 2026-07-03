@@ -4,10 +4,11 @@
     "module": "ESNext",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "declaration": true,
+    "rootDir": "./src",
     "outDir": "./dist/",
     "strict": true,
     "skipLibCheck": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true
   },

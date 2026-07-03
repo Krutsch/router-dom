@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -8,7 +8,7 @@
       import { hydro, $ } from "hydro-js";
       import { runTests } from "@web/test-runner-mocha";
       import { expect } from "@esm-bundle/chai";
-      import Router from "../../dist/router.js";
+      import Router from "/src/bundle.js";
 
       const sleep = (time) =>
         new Promise((resolve) => setTimeout(resolve, time));
@@ -77,7 +77,7 @@
                 <a href="/a">A</a>
                 <a href="/b">B</a>
                 <div data-outlet></div>
-              </div>`
+              </div>`,
             );
 
             router = new Router([
@@ -108,7 +108,7 @@
                 <a href="/a">A</a>
                 <a href="/b">B</a>
                 <div data-outlet></div>
-              </div>`
+              </div>`,
             );
 
             router = new Router([

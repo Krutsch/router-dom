@@ -1,4 +1,4 @@
-import type { MatchResult } from "path-to-regexp";
+import type { MatchResult, ParamData } from "path-to-regexp";
 import { pathToRegexp, match } from "path-to-regexp";
 import { render, html, hydro, $, $$, setReuseElements } from "hydro-js";
 
@@ -7,6 +7,8 @@ const storageKey = "router-scroll";
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
 const fetchCache = new WeakMap<Route, Cache>();
+const optionalParamRegex = /\/:([A-Za-z_$][\w$]*)\?/g;
+const legacyQueryRegex = /\(\\\?\)\?\(\.\*\)$/;
 let base = $("base")?.getAttribute("href") || "";
 if (base.endsWith("/")) {
   base = [...base].slice(0, -1).join("");
@@ -25,8 +27,8 @@ addEventListener("popstate", async (e) => {
 addEventListener("beforeunload", () =>
   sessionStorage.setItem(
     `${storageKey}-${location.pathname + location.search}`,
-    `${scrollX} ${scrollY}`
-  )
+    `${scrollX} ${scrollY}`,
+  ),
 );
 
 export default class Router {
@@ -51,14 +53,20 @@ export default class Router {
       }
     }
 
-    const newRoutes = routes.map((route) => {
+    const toRoute = (route: RouteParam): Route => {
+      const routePath = normalizeRoutePath(base + route.path);
       return {
         restoreScroll: true,
         ...route,
-        path: pathToRegexp(base + route.path),
-        originalPath: base + route.path,
+        path: pathToRegexp(routePath).regexp,
+        originalPath: routePath,
       };
-    }) as [Route, ...Route[]];
+    };
+    const [firstRoute, ...otherRoutes] = routes;
+    const newRoutes: [Route, ...Route[]] = [
+      toRoute(firstRoute),
+      ...otherRoutes.map(toRoute),
+    ];
 
     this.routes = newRoutes;
     this.options = options;
@@ -94,15 +102,13 @@ export default class Router {
   }
 
   private getMatchingRoute(path: string): Route | undefined {
-    if (path.startsWith(".")) {
-      path = path.replace(".", "");
-    }
+    path = getRouteMatchPath(path);
     return this.routes.find((route) => route.path.exec(path));
   }
 
   async doRouting(
     to: string = location.pathname + location.search,
-    e?: PopStateEvent
+    e?: PopStateEvent,
   ) {
     dispatchEvent(new Event("beforeRouting"));
     const from = this.oldRoute ?? to;
@@ -118,13 +124,13 @@ export default class Router {
       try {
         const { params } = match(route.originalPath, {
           decode: decodeURIComponent,
-        })(to) as MatchResult;
+        })(getRouteMatchPath(to)) as MatchResult<ParamData>;
         const allParams = {
           ...Router.getParams(),
           ...Object.fromEntries(
             Object.entries(params)
               .map((pair) => Number.isNaN(Number(pair[0])) && pair)
-              .filter(Boolean) as Iterable<[string | symbol, string]>
+              .filter(Boolean) as Iterable<[string | symbol, string]>,
           ),
         };
         const props = {
@@ -139,7 +145,7 @@ export default class Router {
         // Trigger leave
         if (this.oldRoute) {
           const oldRoute = this.routes.find((route) =>
-            route.path.exec(this.oldRoute!)
+            route.path.exec(getRouteMatchPath(this.oldRoute!)),
           );
           if (oldRoute) {
             await oldRoute[cycles.leave]?.(props);
@@ -229,7 +235,9 @@ export default class Router {
 
   removeRoute(path: string) {
     const idx = this.routes.findIndex(
-      (route) => String(route.path) === String(pathToRegexp(path))
+      (route) =>
+        String(route.path) ===
+        String(pathToRegexp(normalizeRoutePath(path)).regexp),
     );
     if (idx > -1) {
       this.routes.splice(idx, 1);
@@ -237,22 +245,26 @@ export default class Router {
   }
 
   addRoute(route: RouteParam) {
+    const routePath = normalizeRoutePath(base + route.path);
     this.routes.push({
       ...route,
-      path: pathToRegexp(base + route.path),
-      originalPath: base + route.path,
+      path: pathToRegexp(routePath).regexp,
+      originalPath: routePath,
     });
   }
 
   modifyRoute(path: string, newRoute: RouteParam) {
     const idx = this.routes.findIndex(
-      (route) => String(route.path) === String(pathToRegexp(path))
+      (route) =>
+        String(route.path) ===
+        String(pathToRegexp(normalizeRoutePath(path)).regexp),
     );
     if (idx > -1) {
+      const routePath = normalizeRoutePath(base + newRoute.path);
       this.routes[idx] = {
         ...newRoute,
-        path: pathToRegexp(base + newRoute.path),
-        originalPath: base + path,
+        path: pathToRegexp(routePath).regexp,
+        originalPath: normalizeRoutePath(base + path),
       };
     }
   }
@@ -310,6 +322,19 @@ function replaceBars(hydroTerm: string | null) {
   return hydroPath;
 }
 
+function normalizeRoutePath(path: string) {
+  return path
+    .replace(legacyQueryRegex, "")
+    .replace(optionalParamRegex, "{/:$1}");
+}
+
+function getRouteMatchPath(path: string) {
+  if (path.startsWith(".")) {
+    path = path.replace(".", "");
+  }
+  return path.split(/[?#]/, 1)[0] || "/";
+}
+
 // Add EventListener for every added anchor and form Element
 $$("a").forEach(registerAnchorEvent);
 $$("form").forEach(registerFormEvent);
@@ -358,7 +383,7 @@ async function handleTemplate(route: Route, where: Element) {
   (copy as Element).append(
     window.isHMR || !cacheObj?.hasOwnProperty("html")
       ? html`${await (await fetch(route.templateUrl!)).text()}`
-      : html`${(await cacheObj!.html) || ""}`
+      : html`${(await cacheObj!.html) || ""}`,
   );
   render(copy, where, false);
 }

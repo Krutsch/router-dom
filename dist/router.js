@@ -5,6 +5,8 @@ const storageKey = "router-scroll";
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
 const fetchCache = new WeakMap();
+const optionalParamRegex = /\/:([A-Za-z_$][\w$]*)\?/g;
+const legacyQueryRegex = /\(\\\?\)\?\(\.\*\)$/;
 let base = $("base")?.getAttribute("href") || "";
 if (base.endsWith("/")) {
     base = [...base].slice(0, -1).join("");
@@ -34,14 +36,20 @@ export default class Router {
                 Reflect.deleteProperty(route, "children");
             }
         }
-        const newRoutes = routes.map((route) => {
+        const toRoute = (route) => {
+            const routePath = normalizeRoutePath(base + route.path);
             return {
                 restoreScroll: true,
                 ...route,
-                path: pathToRegexp(base + route.path),
-                originalPath: base + route.path,
+                path: pathToRegexp(routePath).regexp,
+                originalPath: routePath,
             };
-        });
+        };
+        const [firstRoute, ...otherRoutes] = routes;
+        const newRoutes = [
+            toRoute(firstRoute),
+            ...otherRoutes.map(toRoute),
+        ];
         this.routes = newRoutes;
         this.options = options;
         router = this;
@@ -72,9 +80,7 @@ export default class Router {
         this.doRouting();
     }
     getMatchingRoute(path) {
-        if (path.startsWith(".")) {
-            path = path.replace(".", "");
-        }
+        path = getRouteMatchPath(path);
         return this.routes.find((route) => route.path.exec(path));
     }
     async doRouting(to = location.pathname + location.search, e) {
@@ -91,7 +97,7 @@ export default class Router {
             try {
                 const { params } = match(route.originalPath, {
                     decode: decodeURIComponent,
-                })(to);
+                })(getRouteMatchPath(to));
                 const allParams = {
                     ...Router.getParams(),
                     ...Object.fromEntries(Object.entries(params)
@@ -108,7 +114,7 @@ export default class Router {
                 };
                 // Trigger leave
                 if (this.oldRoute) {
-                    const oldRoute = this.routes.find((route) => route.path.exec(this.oldRoute));
+                    const oldRoute = this.routes.find((route) => route.path.exec(getRouteMatchPath(this.oldRoute)));
                     if (oldRoute) {
                         await oldRoute["leave" /* cycles.leave */]?.(props);
                         this.oldRoute = route.originalPath;
@@ -195,25 +201,29 @@ export default class Router {
         }
     }
     removeRoute(path) {
-        const idx = this.routes.findIndex((route) => String(route.path) === String(pathToRegexp(path)));
+        const idx = this.routes.findIndex((route) => String(route.path) ===
+            String(pathToRegexp(normalizeRoutePath(path)).regexp));
         if (idx > -1) {
             this.routes.splice(idx, 1);
         }
     }
     addRoute(route) {
+        const routePath = normalizeRoutePath(base + route.path);
         this.routes.push({
             ...route,
-            path: pathToRegexp(base + route.path),
-            originalPath: base + route.path,
+            path: pathToRegexp(routePath).regexp,
+            originalPath: routePath,
         });
     }
     modifyRoute(path, newRoute) {
-        const idx = this.routes.findIndex((route) => String(route.path) === String(pathToRegexp(path)));
+        const idx = this.routes.findIndex((route) => String(route.path) ===
+            String(pathToRegexp(normalizeRoutePath(path)).regexp));
         if (idx > -1) {
+            const routePath = normalizeRoutePath(base + newRoute.path);
             this.routes[idx] = {
                 ...newRoute,
-                path: pathToRegexp(base + newRoute.path),
-                originalPath: base + path,
+                path: pathToRegexp(routePath).regexp,
+                originalPath: normalizeRoutePath(base + path),
             };
         }
     }
@@ -265,6 +275,17 @@ function replaceBars(hydroTerm) {
         return hydroTerm;
     const [_, hydroPath] = hydroTerm.match(reactivityRegex) || [];
     return hydroPath;
+}
+function normalizeRoutePath(path) {
+    return path
+        .replace(legacyQueryRegex, "")
+        .replace(optionalParamRegex, "{/:$1}");
+}
+function getRouteMatchPath(path) {
+    if (path.startsWith(".")) {
+        path = path.replace(".", "");
+    }
+    return path.split(/[?#]/, 1)[0] || "/";
 }
 // Add EventListener for every added anchor and form Element
 $$("a").forEach(registerAnchorEvent);
