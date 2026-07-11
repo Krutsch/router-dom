@@ -146,6 +146,34 @@
             expect($("[data-outlet]").textContent).to.include("b");
           });
 
+          it("adds, modifies, and removes routes with a base path", async () => {
+            router.addRoute({
+              path: "/dynamic/:id",
+              element: "<h1>Dynamic</h1>",
+            });
+            expect(router.routes.at(-1).restoreScroll).to.be.true;
+
+            router.modifyRoute("/dynamic/:id", {
+              path: "/renamed/:name",
+              element: "<h1>Renamed</h1>",
+              afterEnter({ params }) {
+                window.dynamicParams = params;
+              },
+            });
+            router.go("/renamed/test");
+            await sleep(50);
+
+            expect($("[data-outlet]").textContent).to.include("Renamed");
+            expect(window.dynamicParams).to.deep.equal({ name: "test" });
+
+            router.removeRoute("/renamed/:name");
+            const hasRenamedRoute = router.routes.some(({ originalPath }) =>
+              originalPath.includes("renamed"),
+            );
+            expect(hasRenamedRoute).to.be.false;
+            delete window.dynamicParams;
+          });
+
           it("does not navigate when route is the same", async () => {
             const props = { from: "/", to: "/a" };
             $("#a").click();

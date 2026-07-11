@@ -9,6 +9,9 @@ const reactivityRegex = /\{\{([^]*?)\}\}/;
 const fetchCache = new WeakMap<Route, Cache>();
 const optionalParamRegex = /\/:([A-Za-z_$][\w$]*)\?/g;
 const legacyQueryRegex = /\(\\\?\)\?\(\.\*\)$/;
+const scheduleIdle =
+  window.requestIdleCallback?.bind(window) ??
+  ((callback: () => void) => window.setTimeout(callback));
 let base = $("base")?.getAttribute("href") || "";
 if (base.endsWith("/")) {
   base = [...base].slice(0, -1).join("");
@@ -35,38 +38,23 @@ export default class Router {
   options: Options;
   routes: [Route, ...Route[]];
   oldRoute: undefined | string;
+  private routingVersion = 0;
 
   constructor(routes: [RouteParam, ...RouteParam[]], options: Options = {}) {
-    // Handle nested routes
-    const length = routes.length - 1;
-    for (let i = length; i >= 0; i--) {
-      const route = routes[i];
-      if (route.children) {
-        route.children.forEach((child, idx) => {
-          routes.splice(i + idx, 0, {
-            ...child,
-            path: `${route.path}/${child.path}`,
-            isChildOf: route,
-          } as RouteParam);
-        });
-        Reflect.deleteProperty(route, "children");
-      }
-    }
+    const newRoutes = routes.flatMap((route) => {
+      const { children, ...routeConfig } = route;
+      const parent = createRoute(routeConfig);
+      if (!children) return [parent];
 
-    const toRoute = (route: RouteParam): Route => {
-      const routePath = normalizeRoutePath(base + route.path);
-      return {
-        restoreScroll: true,
-        ...route,
-        path: pathToRegexp(routePath).regexp,
-        originalPath: routePath,
-      };
-    };
-    const [firstRoute, ...otherRoutes] = routes;
-    const newRoutes: [Route, ...Route[]] = [
-      toRoute(firstRoute),
-      ...otherRoutes.map(toRoute),
-    ];
+      const childRoutes = children.map((child) => ({
+        ...createRoute({
+          ...child,
+          path: `${route.path}/${child.path}`,
+        }),
+        isChildOf: parent,
+      }));
+      return [...childRoutes, parent];
+    }) as [Route, ...Route[]];
 
     this.routes = newRoutes;
     this.options = options;
@@ -77,22 +65,9 @@ export default class Router {
     this.routes.forEach((route) => {
       // @ts-expect-error
       if (route.templateUrl && !navigator.connection?.saveData) {
-        const controller = new AbortController();
-        const cache = { promise: null, controller } as Cache;
-        fetchCache.set(route, cache);
-        setTimeout(() => {
-          requestIdleCallback(() => {
-            cache.promise = fetch(route.templateUrl!, {
-              signal: controller.signal,
-            });
-            (cache.promise as unknown as Promise<Response>)
-              .then((res) => res.text())
-              .then((_html) => {
-                cache.html = _html;
-              })
-              .catch(async (err) => {
-                await this.options.errorHandler?.(err);
-              });
+        scheduleIdle(() => {
+          getTemplate(route).catch(async (err) => {
+            await this.options.errorHandler?.(err);
           });
         });
       }
@@ -110,15 +85,20 @@ export default class Router {
     to: string = location.pathname + location.search,
     e?: PopStateEvent,
   ) {
+    const routingVersion = ++this.routingVersion;
+    const isCurrent = () => routingVersion === this.routingVersion;
     dispatchEvent(new Event("beforeRouting"));
     const from = this.oldRoute ?? to;
     const route = this.getMatchingRoute(to);
     if (route) {
+      const routeStorageKey = `${storageKey}-${to}`;
+
       // Store position
-      let currStorageKey: string;
       if (this.oldRoute) {
-        currStorageKey = `${storageKey}-${from}`;
-        sessionStorage.setItem(currStorageKey, `${scrollX} ${scrollY}`);
+        sessionStorage.setItem(
+          `${storageKey}-${from}`,
+          `${scrollX} ${scrollY}`,
+        );
       }
 
       try {
@@ -149,19 +129,21 @@ export default class Router {
           );
           if (oldRoute) {
             await oldRoute[cycles.leave]?.(props);
-            this.oldRoute = route.originalPath;
+            if (!isCurrent()) return;
           }
         }
 
         // Trigger beforeEnter
         await route[cycles.beforeEnter]?.(props);
+        if (!isCurrent()) return;
 
         // Handle template / element
         if (!!route.isChildOf) {
           setReuseElements(false);
           const parent = route.isChildOf!;
           if (parent.templateUrl) {
-            await handleTemplate(parent, $(outletSelector)!);
+            await handleTemplate(parent, $(outletSelector)!, isCurrent);
+            if (!isCurrent()) return;
           } else if (parent.element) {
             const copy = $(outletSelector)!.cloneNode();
             (copy as Element).append(html`${parent.element}`);
@@ -174,7 +156,8 @@ export default class Router {
           ? $(outletSelector)!.querySelector(outletSelector)!
           : $(outletSelector)!;
         if (route?.templateUrl) {
-          await handleTemplate(route, where);
+          await handleTemplate(route, where, isCurrent);
+          if (!isCurrent()) return;
         } else if (route?.element) {
           const copy = where.cloneNode();
           (copy as Element).append(html`${route.element}`);
@@ -183,10 +166,10 @@ export default class Router {
           // Clear outlet
           $(outletSelector)!.textContent = null;
         }
-        currStorageKey = `${storageKey}-${to}`;
-
         // Trigger afterEnter
         await route[cycles.afterEnter]?.(props);
+        if (!isCurrent()) return;
+        this.oldRoute = to;
       } catch (err) {
         if (this.options.errorHandler) {
           await this.options.errorHandler(err, e);
@@ -194,13 +177,18 @@ export default class Router {
           console.error(err, e);
         }
       } finally {
+        if (!isCurrent()) {
+          dispatchEvent(new Event("afterRouting"));
+          return;
+        }
+
         // Reload -> restore scroll position
-        if (route.restoreScroll && sessionStorage.getItem(currStorageKey!)) {
+        if (route.restoreScroll && sessionStorage.getItem(routeStorageKey)) {
           const [left, top] = sessionStorage
-            .getItem(currStorageKey!)!
+            .getItem(routeStorageKey)!
             .split(" ")
             .map(Number);
-          sessionStorage.removeItem(currStorageKey!);
+          sessionStorage.removeItem(routeStorageKey);
           scrollTo({
             top,
             left,
@@ -222,7 +210,7 @@ export default class Router {
     }
   }
 
-  go(path: string, state: LooseObject, params = "") {
+  go(path: string, state: LooseObject = {}, params = "") {
     this.oldRoute = location.pathname + location.search;
     const newPath = base + path + params;
 
@@ -237,7 +225,7 @@ export default class Router {
     const idx = this.routes.findIndex(
       (route) =>
         String(route.path) ===
-        String(pathToRegexp(normalizeRoutePath(path)).regexp),
+        String(pathToRegexp(normalizeRoutePath(base + path)).regexp),
     );
     if (idx > -1) {
       this.routes.splice(idx, 1);
@@ -245,27 +233,17 @@ export default class Router {
   }
 
   addRoute(route: RouteParam) {
-    const routePath = normalizeRoutePath(base + route.path);
-    this.routes.push({
-      ...route,
-      path: pathToRegexp(routePath).regexp,
-      originalPath: routePath,
-    });
+    this.routes.push(createRoute(route));
   }
 
   modifyRoute(path: string, newRoute: RouteParam) {
     const idx = this.routes.findIndex(
       (route) =>
         String(route.path) ===
-        String(pathToRegexp(normalizeRoutePath(path)).regexp),
+        String(pathToRegexp(normalizeRoutePath(base + path)).regexp),
     );
     if (idx > -1) {
-      const routePath = normalizeRoutePath(base + newRoute.path);
-      this.routes[idx] = {
-        ...newRoute,
-        path: pathToRegexp(routePath).regexp,
-        originalPath: normalizeRoutePath(base + path),
-      };
+      this.routes[idx] = createRoute(newRoute);
     }
   }
 
@@ -279,13 +257,44 @@ export default class Router {
 }
 
 function registerAnchorEvent(anchor: HTMLAnchorElement) {
-  if (anchor.getAttribute("href")?.startsWith("http")) return;
   anchor.addEventListener("click", (e: MouseEvent) => {
+    const href = anchor.getAttribute("href");
+    const target = anchor.getAttribute("target");
+    if (
+      e.defaultPrevented ||
+      e.button !== 0 ||
+      e.metaKey ||
+      e.ctrlKey ||
+      e.shiftKey ||
+      e.altKey ||
+      !href ||
+      anchor.hasAttribute("download") ||
+      (target && target !== "_self")
+    ) {
+      return;
+    }
+
+    const url = new URL(href, location.href);
+    if (
+      url.origin !== location.origin ||
+      !["http:", "https:"].includes(url.protocol) ||
+      (url.hash &&
+        url.pathname === location.pathname &&
+        url.search === location.search)
+    ) {
+      return;
+    }
+
     e.preventDefault();
     const hasData = anchor.getAttribute("data");
     const hydroProp = replaceBars(hasData);
-    const href = anchor.getAttribute("href") || "";
-    router.go(href, hasData ? hydro[hydroProp!] : void 0);
+    const path = url.pathname.startsWith(`${base}/`)
+      ? url.pathname.slice(base.length)
+      : url.pathname;
+    router.go(
+      path + url.search + url.hash,
+      hasData ? hydro[hydroProp!] : void 0,
+    );
   });
 }
 
@@ -294,12 +303,12 @@ function registerFormEvent(form: HTMLFormElement) {
     if (!router.options.formHandler) return;
     e.preventDefault();
 
-    const action = form.getAttribute("action")!;
-    const method = form.getAttribute("method")!;
+    const action = form.action;
+    const method = form.method.toUpperCase();
 
     fetch(action, {
       method,
-      ...(!["HEAD", "GET"].includes(method.toUpperCase())
+      ...(!["HEAD", "GET"].includes(method)
         ? { body: new FormData(form) }
         : {}),
       ...router.options.fetchOptions,
@@ -326,6 +335,16 @@ function normalizeRoutePath(path: string) {
   return path
     .replace(legacyQueryRegex, "")
     .replace(optionalParamRegex, "{/:$1}");
+}
+
+function createRoute(route: RouteParam): Route {
+  const routePath = normalizeRoutePath(base + route.path);
+  return {
+    restoreScroll: true,
+    ...route,
+    path: pathToRegexp(routePath).regexp,
+    originalPath: routePath,
+  };
 }
 
 function getRouteMatchPath(path: string) {
@@ -362,30 +381,40 @@ new MutationObserver((entries) => {
   }
 }).observe(document.body, { childList: true, subtree: true });
 
-async function handleTemplate(route: Route, where: Element) {
-  let cacheObj = fetchCache.get(route);
-  if (!fetchCache.has(route) || cacheObj?.promise === null) {
-    cacheObj?.controller?.abort();
-
-    const data = await fetch(route.templateUrl!);
-    if (!cacheObj) {
-      cacheObj = {
-        html: await data.text(),
-      };
-      fetchCache.set(route, cacheObj);
-    } else {
-      cacheObj.html = await data.text();
-    }
-  }
-  Reflect.deleteProperty(cacheObj!, "controller");
-
+async function handleTemplate(
+  route: Route,
+  where: Element,
+  isCurrent: () => boolean = () => true,
+) {
   const copy = where.cloneNode();
-  (copy as Element).append(
-    window.isHMR || !cacheObj?.hasOwnProperty("html")
-      ? html`${await (await fetch(route.templateUrl!)).text()}`
-      : html`${(await cacheObj!.html) || ""}`,
-  );
+  const template = window.isHMR
+    ? await (await fetch(route.templateUrl!)).text()
+    : await getTemplate(route);
+  if (!isCurrent()) return;
+  (copy as Element).append(html`${template}`);
   render(copy, where, false);
+}
+
+function getTemplate(route: Route): Promise<string> {
+  let cache = fetchCache.get(route);
+  if (cache?.html !== undefined) return Promise.resolve(cache.html);
+
+  if (!cache) {
+    cache = {};
+    fetchCache.set(route, cache);
+  }
+  if (!cache.promise) {
+    cache.promise = fetch(route.templateUrl!)
+      .then((response) => response.text())
+      .then((template) => {
+        cache!.html = template;
+        return template;
+      })
+      .finally(() => {
+        Reflect.deleteProperty(cache!, "promise");
+      });
+  }
+  return cache.promise;
 }
 
 const enum cycles {
@@ -424,7 +453,6 @@ interface RoutingProps {
 }
 type LooseObject = Record<keyof any, any>;
 type Cache = {
-  promise?: null | Promise<Response>;
-  controller?: AbortController;
+  promise?: Promise<string>;
   html?: string;
 };

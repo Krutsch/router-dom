@@ -17,6 +17,10 @@
         let router;
 
         beforeEach(async () => {
+          delete window.form;
+          delete window.formEvent;
+          delete window.err;
+          delete window.errEvent;
           router = new Router(
             [
               {
@@ -46,6 +50,31 @@
             await sleep(50);
             expect(window.err).to.not.be.undefined;
             expect(window.errEvent).to.not.be.undefined;
+          });
+
+          it("uses browser defaults for action and method", async () => {
+            const originalFetch = window.fetch;
+            let request;
+            window.fetch = (action, options) => {
+              request = { action, options };
+              return Promise.resolve(new Response());
+            };
+
+            try {
+              $("#defaultForm").dispatchEvent(
+                new SubmitEvent("submit", {
+                  bubbles: true,
+                  cancelable: true,
+                }),
+              );
+              await sleep(20);
+
+              expect(request.action).to.equal($("#defaultForm").action);
+              expect(request.options.method).to.equal("GET");
+              expect(request.options).not.to.have.property("body");
+            } finally {
+              window.fetch = originalFetch;
+            }
           });
         });
       });
@@ -78,6 +107,10 @@
         value="test@test.com"
       />
       <input id="submit2" type="submit" value="Subscribe!" />
+    </form>
+
+    <form id="defaultForm">
+      <input aria-label="Query" name="query" value="router" />
     </form>
   </body>
 </html>

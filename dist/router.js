@@ -7,6 +7,8 @@ const reactivityRegex = /\{\{([^]*?)\}\}/;
 const fetchCache = new WeakMap();
 const optionalParamRegex = /\/:([A-Za-z_$][\w$]*)\?/g;
 const legacyQueryRegex = /\(\\\?\)\?\(\.\*\)$/;
+const scheduleIdle = window.requestIdleCallback?.bind(window) ??
+    ((callback) => window.setTimeout(callback));
 let base = $("base")?.getAttribute("href") || "";
 if (base.endsWith("/")) {
     base = [...base].slice(0, -1).join("");
@@ -20,36 +22,22 @@ export default class Router {
     options;
     routes;
     oldRoute;
+    routingVersion = 0;
     constructor(routes, options = {}) {
-        // Handle nested routes
-        const length = routes.length - 1;
-        for (let i = length; i >= 0; i--) {
-            const route = routes[i];
-            if (route.children) {
-                route.children.forEach((child, idx) => {
-                    routes.splice(i + idx, 0, {
-                        ...child,
-                        path: `${route.path}/${child.path}`,
-                        isChildOf: route,
-                    });
-                });
-                Reflect.deleteProperty(route, "children");
-            }
-        }
-        const toRoute = (route) => {
-            const routePath = normalizeRoutePath(base + route.path);
-            return {
-                restoreScroll: true,
-                ...route,
-                path: pathToRegexp(routePath).regexp,
-                originalPath: routePath,
-            };
-        };
-        const [firstRoute, ...otherRoutes] = routes;
-        const newRoutes = [
-            toRoute(firstRoute),
-            ...otherRoutes.map(toRoute),
-        ];
+        const newRoutes = routes.flatMap((route) => {
+            const { children, ...routeConfig } = route;
+            const parent = createRoute(routeConfig);
+            if (!children)
+                return [parent];
+            const childRoutes = children.map((child) => ({
+                ...createRoute({
+                    ...child,
+                    path: `${route.path}/${child.path}`,
+                }),
+                isChildOf: parent,
+            }));
+            return [...childRoutes, parent];
+        });
         this.routes = newRoutes;
         this.options = options;
         router = this;
@@ -57,22 +45,9 @@ export default class Router {
         this.routes.forEach((route) => {
             // @ts-expect-error
             if (route.templateUrl && !navigator.connection?.saveData) {
-                const controller = new AbortController();
-                const cache = { promise: null, controller };
-                fetchCache.set(route, cache);
-                setTimeout(() => {
-                    requestIdleCallback(() => {
-                        cache.promise = fetch(route.templateUrl, {
-                            signal: controller.signal,
-                        });
-                        cache.promise
-                            .then((res) => res.text())
-                            .then((_html) => {
-                            cache.html = _html;
-                        })
-                            .catch(async (err) => {
-                            await this.options.errorHandler?.(err);
-                        });
+                scheduleIdle(() => {
+                    getTemplate(route).catch(async (err) => {
+                        await this.options.errorHandler?.(err);
                     });
                 });
             }
@@ -84,15 +59,16 @@ export default class Router {
         return this.routes.find((route) => route.path.exec(path));
     }
     async doRouting(to = location.pathname + location.search, e) {
+        const routingVersion = ++this.routingVersion;
+        const isCurrent = () => routingVersion === this.routingVersion;
         dispatchEvent(new Event("beforeRouting"));
         const from = this.oldRoute ?? to;
         const route = this.getMatchingRoute(to);
         if (route) {
+            const routeStorageKey = `${storageKey}-${to}`;
             // Store position
-            let currStorageKey;
             if (this.oldRoute) {
-                currStorageKey = `${storageKey}-${from}`;
-                sessionStorage.setItem(currStorageKey, `${scrollX} ${scrollY}`);
+                sessionStorage.setItem(`${storageKey}-${from}`, `${scrollX} ${scrollY}`);
             }
             try {
                 const { params } = match(route.originalPath, {
@@ -117,17 +93,22 @@ export default class Router {
                     const oldRoute = this.routes.find((route) => route.path.exec(getRouteMatchPath(this.oldRoute)));
                     if (oldRoute) {
                         await oldRoute["leave" /* cycles.leave */]?.(props);
-                        this.oldRoute = route.originalPath;
+                        if (!isCurrent())
+                            return;
                     }
                 }
                 // Trigger beforeEnter
                 await route["beforeEnter" /* cycles.beforeEnter */]?.(props);
+                if (!isCurrent())
+                    return;
                 // Handle template / element
                 if (!!route.isChildOf) {
                     setReuseElements(false);
                     const parent = route.isChildOf;
                     if (parent.templateUrl) {
-                        await handleTemplate(parent, $(outletSelector));
+                        await handleTemplate(parent, $(outletSelector), isCurrent);
+                        if (!isCurrent())
+                            return;
                     }
                     else if (parent.element) {
                         const copy = $(outletSelector).cloneNode();
@@ -140,7 +121,9 @@ export default class Router {
                     ? $(outletSelector).querySelector(outletSelector)
                     : $(outletSelector);
                 if (route?.templateUrl) {
-                    await handleTemplate(route, where);
+                    await handleTemplate(route, where, isCurrent);
+                    if (!isCurrent())
+                        return;
                 }
                 else if (route?.element) {
                     const copy = where.cloneNode();
@@ -151,9 +134,11 @@ export default class Router {
                     // Clear outlet
                     $(outletSelector).textContent = null;
                 }
-                currStorageKey = `${storageKey}-${to}`;
                 // Trigger afterEnter
                 await route["afterEnter" /* cycles.afterEnter */]?.(props);
+                if (!isCurrent())
+                    return;
+                this.oldRoute = to;
             }
             catch (err) {
                 if (this.options.errorHandler) {
@@ -164,13 +149,17 @@ export default class Router {
                 }
             }
             finally {
+                if (!isCurrent()) {
+                    dispatchEvent(new Event("afterRouting"));
+                    return;
+                }
                 // Reload -> restore scroll position
-                if (route.restoreScroll && sessionStorage.getItem(currStorageKey)) {
+                if (route.restoreScroll && sessionStorage.getItem(routeStorageKey)) {
                     const [left, top] = sessionStorage
-                        .getItem(currStorageKey)
+                        .getItem(routeStorageKey)
                         .split(" ")
                         .map(Number);
-                    sessionStorage.removeItem(currStorageKey);
+                    sessionStorage.removeItem(routeStorageKey);
                     scrollTo({
                         top,
                         left,
@@ -191,7 +180,7 @@ export default class Router {
             }
         }
     }
-    go(path, state, params = "") {
+    go(path, state = {}, params = "") {
         this.oldRoute = location.pathname + location.search;
         const newPath = base + path + params;
         // Only navigate when the path differs
@@ -202,29 +191,19 @@ export default class Router {
     }
     removeRoute(path) {
         const idx = this.routes.findIndex((route) => String(route.path) ===
-            String(pathToRegexp(normalizeRoutePath(path)).regexp));
+            String(pathToRegexp(normalizeRoutePath(base + path)).regexp));
         if (idx > -1) {
             this.routes.splice(idx, 1);
         }
     }
     addRoute(route) {
-        const routePath = normalizeRoutePath(base + route.path);
-        this.routes.push({
-            ...route,
-            path: pathToRegexp(routePath).regexp,
-            originalPath: routePath,
-        });
+        this.routes.push(createRoute(route));
     }
     modifyRoute(path, newRoute) {
         const idx = this.routes.findIndex((route) => String(route.path) ===
-            String(pathToRegexp(normalizeRoutePath(path)).regexp));
+            String(pathToRegexp(normalizeRoutePath(base + path)).regexp));
         if (idx > -1) {
-            const routePath = normalizeRoutePath(base + newRoute.path);
-            this.routes[idx] = {
-                ...newRoute,
-                path: pathToRegexp(routePath).regexp,
-                originalPath: normalizeRoutePath(base + path),
-            };
+            this.routes[idx] = createRoute(newRoute);
         }
     }
     changeOptions(options) {
@@ -235,14 +214,35 @@ export default class Router {
     }
 }
 function registerAnchorEvent(anchor) {
-    if (anchor.getAttribute("href")?.startsWith("http"))
-        return;
     anchor.addEventListener("click", (e) => {
+        const href = anchor.getAttribute("href");
+        const target = anchor.getAttribute("target");
+        if (e.defaultPrevented ||
+            e.button !== 0 ||
+            e.metaKey ||
+            e.ctrlKey ||
+            e.shiftKey ||
+            e.altKey ||
+            !href ||
+            anchor.hasAttribute("download") ||
+            (target && target !== "_self")) {
+            return;
+        }
+        const url = new URL(href, location.href);
+        if (url.origin !== location.origin ||
+            !["http:", "https:"].includes(url.protocol) ||
+            (url.hash &&
+                url.pathname === location.pathname &&
+                url.search === location.search)) {
+            return;
+        }
         e.preventDefault();
         const hasData = anchor.getAttribute("data");
         const hydroProp = replaceBars(hasData);
-        const href = anchor.getAttribute("href") || "";
-        router.go(href, hasData ? hydro[hydroProp] : void 0);
+        const path = url.pathname.startsWith(`${base}/`)
+            ? url.pathname.slice(base.length)
+            : url.pathname;
+        router.go(path + url.search + url.hash, hasData ? hydro[hydroProp] : void 0);
     });
 }
 function registerFormEvent(form) {
@@ -250,11 +250,11 @@ function registerFormEvent(form) {
         if (!router.options.formHandler)
             return;
         e.preventDefault();
-        const action = form.getAttribute("action");
-        const method = form.getAttribute("method");
+        const action = form.action;
+        const method = form.method.toUpperCase();
         fetch(action, {
             method,
-            ...(!["HEAD", "GET"].includes(method.toUpperCase())
+            ...(!["HEAD", "GET"].includes(method)
                 ? { body: new FormData(form) }
                 : {}),
             ...router.options.fetchOptions,
@@ -280,6 +280,15 @@ function normalizeRoutePath(path) {
     return path
         .replace(legacyQueryRegex, "")
         .replace(optionalParamRegex, "{/:$1}");
+}
+function createRoute(route) {
+    const routePath = normalizeRoutePath(base + route.path);
+    return {
+        restoreScroll: true,
+        ...route,
+        path: pathToRegexp(routePath).regexp,
+        originalPath: routePath,
+    };
 }
 function getRouteMatchPath(path) {
     if (path.startsWith(".")) {
@@ -312,25 +321,34 @@ new MutationObserver((entries) => {
         }
     }
 }).observe(document.body, { childList: true, subtree: true });
-async function handleTemplate(route, where) {
-    let cacheObj = fetchCache.get(route);
-    if (!fetchCache.has(route) || cacheObj?.promise === null) {
-        cacheObj?.controller?.abort();
-        const data = await fetch(route.templateUrl);
-        if (!cacheObj) {
-            cacheObj = {
-                html: await data.text(),
-            };
-            fetchCache.set(route, cacheObj);
-        }
-        else {
-            cacheObj.html = await data.text();
-        }
-    }
-    Reflect.deleteProperty(cacheObj, "controller");
+async function handleTemplate(route, where, isCurrent = () => true) {
     const copy = where.cloneNode();
-    copy.append(window.isHMR || !cacheObj?.hasOwnProperty("html")
-        ? html `${await (await fetch(route.templateUrl)).text()}`
-        : html `${(await cacheObj.html) || ""}`);
+    const template = window.isHMR
+        ? await (await fetch(route.templateUrl)).text()
+        : await getTemplate(route);
+    if (!isCurrent())
+        return;
+    copy.append(html `${template}`);
     render(copy, where, false);
+}
+function getTemplate(route) {
+    let cache = fetchCache.get(route);
+    if (cache?.html !== undefined)
+        return Promise.resolve(cache.html);
+    if (!cache) {
+        cache = {};
+        fetchCache.set(route, cache);
+    }
+    if (!cache.promise) {
+        cache.promise = fetch(route.templateUrl)
+            .then((response) => response.text())
+            .then((template) => {
+            cache.html = template;
+            return template;
+        })
+            .finally(() => {
+            Reflect.deleteProperty(cache, "promise");
+        });
+    }
+    return cache.promise;
 }

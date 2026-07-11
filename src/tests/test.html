@@ -80,6 +80,34 @@
               .true;
           });
 
+          it("preserves native behavior for links the router should ignore", () => {
+            const expectIgnored = (anchor, eventInit = {}) => {
+              let routerPreventedDefault;
+              anchor.addEventListener(
+                "click",
+                (event) => {
+                  routerPreventedDefault = event.defaultPrevented;
+                  event.preventDefault();
+                },
+                { once: true },
+              );
+              anchor.dispatchEvent(
+                new MouseEvent("click", {
+                  bubbles: true,
+                  cancelable: true,
+                  ...eventInit,
+                }),
+              );
+              expect(routerPreventedDefault).to.be.false;
+            };
+
+            expectIgnored($("#home"), { ctrlKey: true });
+            expectIgnored($("#hash"));
+            expectIgnored($("#mailto"));
+            expectIgnored($("#target"));
+            expectIgnored($("#download"));
+          });
+
           it("goes to the correct route when clicking on an element", () => {
             $("#home").click();
             expect(location.pathname + location.search).to.equal("/");
@@ -138,6 +166,62 @@
             router.go("/b", data);
             await sleep(50);
             expect($("[data-outlet]").textContent).to.include("b");
+          });
+
+          it("shares one request between navigation and idle prefetch", async () => {
+            const originalFetch = window.fetch;
+            let fetchCalls = 0;
+            let resolveFetch;
+            window.fetch = () => {
+              fetchCalls++;
+              return new Promise((resolve) => {
+                resolveFetch = () =>
+                  resolve(new Response("<h1>Cached template</h1>"));
+              });
+            };
+
+            try {
+              router = new Router([
+                { path: "/cached", templateUrl: "/cached.html" },
+              ]);
+              router.go("/cached");
+              await sleep(20);
+
+              expect(fetchCalls).to.equal(1);
+              resolveFetch();
+              await sleep(20);
+              expect($("[data-outlet]").textContent).to.include(
+                "Cached template",
+              );
+            } finally {
+              window.fetch = originalFetch;
+            }
+          });
+
+          it("does not render a stale asynchronous navigation", async () => {
+            let releaseSlowRoute;
+            const slowRoute = new Promise((resolve) => {
+              releaseSlowRoute = resolve;
+            });
+            router = new Router([
+              {
+                path: "/slow",
+                element: "<h1>Slow</h1>",
+                beforeEnter: () => slowRoute,
+              },
+              { path: "/fast", element: "<h1>Fast</h1>" },
+            ]);
+
+            router.go("/slow");
+            await sleep(0);
+            router.go("/fast");
+            await sleep(20);
+            releaseSlowRoute();
+            await sleep(20);
+
+            expect($("[data-outlet]").textContent).to.include("Fast");
+            expect($("[data-outlet]").textContent).not.to.include("Slow");
+            expect(router.oldRoute).to.equal("/fast");
           });
 
           it("does not navigate when route is the same", async () => {
@@ -204,6 +288,18 @@
             expect(window.beforeEnterA).to.be.undefined;
             expect(window.afterEnterHome).to.be.undefined;
             expect(window.afterEnterA).to.be.undefined;
+          });
+
+          it("keeps the exact previous URL in lifecycle props", async () => {
+            await router.doRouting("/b/4?q=testing");
+            delete window.leaveB;
+
+            await router.doRouting("/a");
+
+            expect(window.leaveB).to.deep.equal({
+              from: "/b/4?q=testing",
+              to: "/a",
+            });
           });
 
           it("uses the errorHandler", async () => {
@@ -276,6 +372,10 @@
     <a id="b" href="/b">b</a>
     <a id="id" href="/b/4">b</a>
     <a id="other" href="https://krutsch.netlify.app">Page</a>
+    <a id="hash" href="#section">Section</a>
+    <a id="mailto" href="mailto:test@example.com">Email</a>
+    <a id="target" href="/a" target="_blank">New tab</a>
+    <a id="download" href="/a" download>Download</a>
     <a id="param" href="/a?q=testing">a</a>
     <a id="data" href="/a?q=testing" data="data">a</a>
 

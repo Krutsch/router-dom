@@ -2,10 +2,11 @@ export default class Router {
     options: Options;
     routes: [Route, ...Route[]];
     oldRoute: undefined | string;
+    private routingVersion;
     constructor(routes: [RouteParam, ...RouteParam[]], options?: Options);
     private getMatchingRoute;
     doRouting(to?: string, e?: PopStateEvent): Promise<void>;
-    go(path: string, state: LooseObject, params?: string): void;
+    go(path: string, state?: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;
     modifyRoute(path: string, newRoute: RouteParam): void;

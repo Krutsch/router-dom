@@ -15,6 +15,7 @@
 
       runTests(() => {
         let router;
+        let routes;
 
         beforeEach(() => {
           const UserSettingsNav = `<div class="us__nav">
@@ -46,7 +47,7 @@
             <h3>Edit your profile</h3>
           </div>`;
 
-          router = new Router([
+          routes = [
             {
               path: "/settings",
               element: UserSettings,
@@ -61,10 +62,17 @@
                 },
               ],
             },
-          ]);
+          ];
+          router = new Router(routes);
         });
 
         describe("router", () => {
+          it("does not mutate nested route definitions", () => {
+            expect(routes).to.have.length(1);
+            expect(routes[0].children).to.have.length(2);
+            expect(routes[0].children[0].path).to.equal("emails");
+          });
+
           it("goes to the nested route", async () => {
             router.go("/settings/emails");
             await sleep(50);

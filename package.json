@@ -31,7 +31,7 @@
     "@web/test-runner": "^1.0.0",
     "@web/test-runner-playwright": "^1.0.0",
     "esbuild": "^0.28.1",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "repository": {
     "type": "git",
@@ -39,7 +39,7 @@
   },
   "bugs": "https://github.com/Krutsch/router-dom/issues",
   "dependencies": {
-    "hydro-js": "^1.9.0",
+    "hydro-js": "^1.9.1",
     "path-to-regexp": "^8.4.2"
   },
   "allowScripts": {
