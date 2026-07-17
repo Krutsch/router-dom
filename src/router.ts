@@ -1,14 +1,20 @@
 import type { MatchResult, ParamData } from "path-to-regexp";
-import { pathToRegexp, match } from "path-to-regexp";
-import { render, html, hydro, $, $$, setReuseElements } from "hydro-js";
+import { match } from "path-to-regexp";
+import { render, html, hydro, $, $$ } from "hydro-js";
+import {
+  compileRoutes,
+  getRoutePathname,
+  resolveRoute,
+  type ResolvedRoute,
+  type RouteDefinition,
+} from "./routes.js";
+export { compileRoutes, resolveRoute } from "./routes.js";
 
 let router: Router;
 const storageKey = "router-scroll";
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
-const fetchCache = new WeakMap<Route, Cache>();
-const optionalParamRegex = /\/:([A-Za-z_$][\w$]*)\?/g;
-const legacyQueryRegex = /\(\\\?\)\?\(\.\*\)$/;
+const fetchCache = new WeakMap<RouteParam, Cache>();
 const scheduleIdle =
   window.requestIdleCallback?.bind(window) ??
   ((callback: () => void) => window.setTimeout(callback));
@@ -41,56 +47,76 @@ export default class Router {
   private routingVersion = 0;
 
   constructor(routes: [RouteParam, ...RouteParam[]], options: Options = {}) {
-    const newRoutes = routes.flatMap((route) => {
-      const { children, ...routeConfig } = route;
-      const parent = createRoute(routeConfig);
-      if (!children) return [parent];
-
-      const childRoutes = children.map((child) => ({
-        ...createRoute({
-          ...child,
-          path: `${route.path}/${child.path}`,
-        }),
-        isChildOf: parent,
-      }));
-      return [...childRoutes, parent];
-    }) as [Route, ...Route[]];
+    const newRoutes = compileRoutes(routes, base).map(toRoute) as [
+      Route,
+      ...Route[],
+    ];
 
     this.routes = newRoutes;
     this.options = options;
 
     router = this;
 
+    const initialUrl = location.pathname + location.search;
+    const initialRoute = this.getMatchingRoute(initialUrl);
+    const initialOutlet = $(outletSelector);
+    const serverRoute = initialOutlet?.getAttribute("data-router-path");
+    const adoptsInitialRoute =
+      initialRoute !== undefined &&
+      (serverRoute === initialUrl || serverRoute === location.pathname);
+
+    if (adoptsInitialRoute) {
+      initialOutlet!.removeAttribute("data-router-path");
+    }
+
     // Prefetch resources
     this.routes.forEach((route) => {
+      if (adoptsInitialRoute && initialRoute.chain.includes(route.route)) {
+        return;
+      }
       // @ts-expect-error
       if (route.templateUrl && !navigator.connection?.saveData) {
         scheduleIdle(() => {
-          getTemplate(route).catch(async (err) => {
+          getTemplate(route.route).catch(async (err) => {
             await this.options.errorHandler?.(err);
           });
         });
       }
     });
 
-    this.doRouting();
+    this.doRouting(initialUrl, undefined, adoptsInitialRoute);
+    if (
+      adoptsInitialRoute ||
+      initialRoute?.chain.every((segment) => !segment.templateUrl)
+    ) {
+      this.oldRoute = initialUrl;
+    }
   }
 
   private getMatchingRoute(path: string): Route | undefined {
-    path = getRouteMatchPath(path);
-    return this.routes.find((route) => route.path.exec(path));
+    return resolveRoute(this.routes, path) as Route | undefined;
   }
 
+  private finishRouting(routingVersion: number) {
+    if (routingVersion === this.routingVersion) {
+      dispatchEvent(new Event("afterRouting"));
+    }
+  }
   async doRouting(
     to: string = location.pathname + location.search,
     e?: PopStateEvent,
+    adopt = false,
   ) {
     const routingVersion = ++this.routingVersion;
     const isCurrent = () => routingVersion === this.routingVersion;
     dispatchEvent(new Event("beforeRouting"));
     const from = this.oldRoute ?? to;
     const route = this.getMatchingRoute(to);
-    if (route) {
+    if (!route) {
+      this.finishRouting(routingVersion);
+      return;
+    }
+    {
       const routeStorageKey = `${storageKey}-${to}`;
 
       // Store position
@@ -102,11 +128,11 @@ export default class Router {
       }
 
       try {
-        const { params } = match(route.originalPath, {
+        const { params } = match(route.pathname, {
           decode: decodeURIComponent,
-        })(getRouteMatchPath(to)) as MatchResult<ParamData>;
+        })(getRoutePathname(to)) as MatchResult<ParamData>;
         const allParams = {
-          ...Router.getParams(),
+          ...Router.getParams(new URL(to, location.href).search),
           ...Object.fromEntries(
             Object.entries(params)
               .map((pair) => Number.isNaN(Number(pair[0])) && pair)
@@ -123,48 +149,21 @@ export default class Router {
         };
 
         // Trigger leave
-        if (this.oldRoute) {
-          const oldRoute = this.routes.find((route) =>
-            route.path.exec(getRouteMatchPath(this.oldRoute!)),
-          );
-          if (oldRoute) {
-            await oldRoute[cycles.leave]?.(props);
-            if (!isCurrent()) return;
-          }
+        const currentRoute = this.oldRoute
+          ? this.getMatchingRoute(this.oldRoute)
+          : undefined;
+        if (currentRoute) {
+          await currentRoute[cycles.leave]?.(props);
+          if (!isCurrent()) return;
         }
 
         // Trigger beforeEnter
         await route[cycles.beforeEnter]?.(props);
         if (!isCurrent()) return;
 
-        // Handle template / element
-        if (!!route.isChildOf) {
-          setReuseElements(false);
-          const parent = route.isChildOf!;
-          if (parent.templateUrl) {
-            await handleTemplate(parent, $(outletSelector)!, isCurrent);
-            if (!isCurrent()) return;
-          } else if (parent.element) {
-            const copy = $(outletSelector)!.cloneNode();
-            (copy as Element).append(html`${parent.element}`);
-            render(copy, outletSelector, false);
-          }
-          setReuseElements(true);
-        }
-
-        const where = route.isChildOf
-          ? $(outletSelector)!.querySelector(outletSelector)!
-          : $(outletSelector)!;
-        if (route?.templateUrl) {
-          await handleTemplate(route, where, isCurrent);
+        if (!adopt) {
+          await renderRoute(route, currentRoute, $(outletSelector)!, isCurrent);
           if (!isCurrent()) return;
-        } else if (route?.element) {
-          const copy = where.cloneNode();
-          (copy as Element).append(html`${route.element}`);
-          render(copy, where, false);
-        } else {
-          // Clear outlet
-          $(outletSelector)!.textContent = null;
         }
         // Trigger afterEnter
         await route[cycles.afterEnter]?.(props);
@@ -177,10 +176,7 @@ export default class Router {
           console.error(err, e);
         }
       } finally {
-        if (!isCurrent()) {
-          dispatchEvent(new Event("afterRouting"));
-          return;
-        }
+        if (!isCurrent()) return;
 
         // Reload -> restore scroll position
         if (route.restoreScroll && sessionStorage.getItem(routeStorageKey)) {
@@ -205,46 +201,50 @@ export default class Router {
           }
         }
 
-        dispatchEvent(new Event("afterRouting"));
+        this.finishRouting(routingVersion);
       }
     }
   }
 
   go(path: string, state: LooseObject = {}, params = "") {
-    this.oldRoute = location.pathname + location.search;
     const newPath = base + path + params;
 
     // Only navigate when the path differs
-    if (newPath !== this.oldRoute) {
+    if (newPath !== location.pathname + location.search) {
       history.pushState({ ...state }, "", newPath);
       this.doRouting(newPath);
     }
   }
 
   removeRoute(path: string) {
-    const idx = this.routes.findIndex(
-      (route) =>
-        String(route.path) ===
-        String(pathToRegexp(normalizeRoutePath(base + path)).regexp),
+    const target = this.routes.find(
+      (route) => route.pathname === getCompiledPathname(path),
     );
-    if (idx > -1) {
-      this.routes.splice(idx, 1);
+    if (!target) return;
+    for (let index = this.routes.length - 1; index >= 0; index--) {
+      if (this.routes[index].chain.includes(target.route)) {
+        this.routes.splice(index, 1);
+      }
     }
   }
 
   addRoute(route: RouteParam) {
-    this.routes.push(createRoute(route));
+    this.routes.push(...compileRoutes([route], base).map(toRoute));
   }
 
   modifyRoute(path: string, newRoute: RouteParam) {
-    const idx = this.routes.findIndex(
-      (route) =>
-        String(route.path) ===
-        String(pathToRegexp(normalizeRoutePath(base + path)).regexp),
+    const target = this.routes.find(
+      (route) => route.pathname === getCompiledPathname(path),
     );
-    if (idx > -1) {
-      this.routes[idx] = createRoute(newRoute);
-    }
+    if (!target) return;
+    const descendantIndexes = this.routes.flatMap((route, index) =>
+      route.chain.includes(target.route) ? [index] : [],
+    );
+    this.routes.splice(
+      descendantIndexes[0],
+      descendantIndexes.length,
+      ...compileRoutes([newRoute], base).map(toRoute),
+    );
   }
 
   changeOptions(options: Options) {
@@ -331,27 +331,17 @@ function replaceBars(hydroTerm: string | null) {
   return hydroPath;
 }
 
-function normalizeRoutePath(path: string) {
-  return path
-    .replace(legacyQueryRegex, "")
-    .replace(optionalParamRegex, "{/:$1}");
-}
-
-function createRoute(route: RouteParam): Route {
-  const routePath = normalizeRoutePath(base + route.path);
+function toRoute(resolved: ResolvedRoute<RouteParam>): Route {
   return {
     restoreScroll: true,
-    ...route,
-    path: pathToRegexp(routePath).regexp,
-    originalPath: routePath,
+    ...resolved.route,
+    ...resolved,
+    originalPath: resolved.pathname,
   };
 }
 
-function getRouteMatchPath(path: string) {
-  if (path.startsWith(".")) {
-    path = path.replace(".", "");
-  }
-  return path.split(/[?#]/, 1)[0] || "/";
+function getCompiledPathname(path: string) {
+  return compileRoutes([{ path }], base)[0].pathname;
 }
 
 // Add EventListener for every added anchor and form Element
@@ -381,21 +371,58 @@ new MutationObserver((entries) => {
   }
 }).observe(document.body, { childList: true, subtree: true });
 
-async function handleTemplate(
+async function renderRoute(
   route: Route,
+  currentRoute: Route | undefined,
   where: Element,
-  isCurrent: () => boolean = () => true,
+  isCurrent: () => boolean,
 ) {
-  const copy = where.cloneNode();
-  const template = window.isHMR
-    ? await (await fetch(route.templateUrl!)).text()
-    : await getTemplate(route);
+  let sharedSegments = 0;
+  while (
+    currentRoute?.chain[sharedSegments] === route.chain[sharedSegments] &&
+    sharedSegments < route.chain.length
+  ) {
+    sharedSegments++;
+  }
+  if (sharedSegments === route.chain.length) sharedSegments--;
+
+  for (let index = 0; index < sharedSegments; index++) {
+    const nestedOutlet = where.querySelector(outletSelector);
+    if (!nestedOutlet) break;
+    where = nestedOutlet;
+  }
+  const routeChain = route.chain.slice(sharedSegments);
+  const templates = await Promise.all(
+    routeChain.map(async (segment) =>
+      segment.templateUrl
+        ? window.isHMR
+          ? (await fetch(segment.templateUrl)).text()
+          : getTemplate(segment)
+        : segment.element,
+    ),
+  );
   if (!isCurrent()) return;
-  (copy as Element).append(html`${template}`);
+
+  const copy = where.cloneNode() as Element;
+  let outlet = copy;
+  for (let index = 0; index < routeChain.length; index++) {
+    const content = templates[index];
+    if (content !== undefined) outlet.append(html`${content}`);
+    if (index === routeChain.length - 1) continue;
+    const nestedOutlet = outlet.querySelector(outletSelector);
+    if (!nestedOutlet) {
+      throw new Error(
+        `Route ${route.pathname} needs a nested ${outletSelector}`,
+      );
+    }
+    nestedOutlet.replaceChildren();
+    outlet = nestedOutlet;
+  }
+
   render(copy, where, false);
 }
 
-function getTemplate(route: Route): Promise<string> {
+function getTemplate(route: RouteParam): Promise<string> {
   let cache = fetchCache.get(route);
   if (cache?.html !== undefined) return Promise.resolve(cache.html);
 
@@ -430,13 +457,11 @@ interface RouteBasic {
   [cycles.afterEnter]?(routingProps: RoutingProps): Promise<any> | void;
   restoreScroll?: boolean;
 }
-interface RouteParam extends RouteBasic {
+export interface RouteParam extends RouteBasic, RouteDefinition {
   path: string;
-  children?: Array<RouteParam>;
+  children?: RouteParam[];
 }
-interface Route extends RouteBasic {
-  isChildOf?: Route;
-  path: RegExp;
+interface Route extends RouteBasic, ResolvedRoute<RouteParam> {
   originalPath: string;
 }
 interface Options {

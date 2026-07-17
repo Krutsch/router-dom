@@ -1,14 +1,22 @@
 {
   "name": "router-dom",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "A lightweight router for everyone",
   "type": "module",
   "main": "dist/router.js",
   "module": "dist/router.js",
   "types": "./dist/router.d.ts",
   "exports": {
-    "import": "./dist/router.js",
-    "default": "./dist/router.js"
+    ".": {
+      "types": "./dist/router.d.ts",
+      "import": "./dist/router.js",
+      "default": "./dist/router.js"
+    },
+    "./routes": {
+      "types": "./dist/routes.d.ts",
+      "import": "./dist/routes.js",
+      "default": "./dist/routes.js"
+    }
   },
   "keywords": [
     "router",
@@ -44,5 +52,11 @@
   },
   "allowScripts": {
     "esbuild@0.28.1": true
-  }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ]
 }

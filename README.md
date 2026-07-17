@@ -79,6 +79,16 @@ const router = new Router([
 ]);
 ```
 
+### Server-rendered initial route
+
+Set `data-router-path` on the route outlet to current pathname, optionally including query string, when server already rendered that route:
+
+```html
+<main data-outlet data-router-path="/about">Server-rendered content</main>
+```
+
+When the marker matches a configured route, the constructor adopts the existing DOM, skips the duplicate initial template request and render, then consumes the marker. Later navigation behaves normally. Missing or stale markers keep the original client-rendered startup behavior.
+
 ### go
 
 - Takes a path, a state object and optional params. Will redirect to the path.

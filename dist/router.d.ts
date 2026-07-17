@@ -1,3 +1,5 @@
+import { type ResolvedRoute, type RouteDefinition } from "./routes.js";
+export { compileRoutes, resolveRoute } from "./routes.js";
 export default class Router {
     options: Options;
     routes: [Route, ...Route[]];
@@ -5,7 +7,8 @@ export default class Router {
     private routingVersion;
     constructor(routes: [RouteParam, ...RouteParam[]], options?: Options);
     private getMatchingRoute;
-    doRouting(to?: string, e?: PopStateEvent): Promise<void>;
+    private finishRouting;
+    doRouting(to?: string, e?: PopStateEvent, adopt?: boolean): Promise<void>;
     go(path: string, state?: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;
@@ -28,13 +31,11 @@ interface RouteBasic {
     [cycles.afterEnter]?(routingProps: RoutingProps): Promise<any> | void;
     restoreScroll?: boolean;
 }
-interface RouteParam extends RouteBasic {
+export interface RouteParam extends RouteBasic, RouteDefinition {
     path: string;
-    children?: Array<RouteParam>;
+    children?: RouteParam[];
 }
-interface Route extends RouteBasic {
-    isChildOf?: Route;
-    path: RegExp;
+interface Route extends RouteBasic, ResolvedRoute<RouteParam> {
     originalPath: string;
 }
 interface Options {
@@ -50,4 +51,3 @@ interface RoutingProps {
     params?: LooseObject;
 }
 type LooseObject = Record<keyof any, any>;
-export {};

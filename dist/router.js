@@ -1,12 +1,12 @@
-import { pathToRegexp, match } from "path-to-regexp";
-import { render, html, hydro, $, $$, setReuseElements } from "hydro-js";
+import { match } from "path-to-regexp";
+import { render, html, hydro, $, $$ } from "hydro-js";
+import { compileRoutes, getRoutePathname, resolveRoute, } from "./routes.js";
+export { compileRoutes, resolveRoute } from "./routes.js";
 let router;
 const storageKey = "router-scroll";
 const outletSelector = "[data-outlet]";
 const reactivityRegex = /\{\{([^]*?)\}\}/;
 const fetchCache = new WeakMap();
-const optionalParamRegex = /\/:([A-Za-z_$][\w$]*)\?/g;
-const legacyQueryRegex = /\(\\\?\)\?\(\.\*\)$/;
 const scheduleIdle = window.requestIdleCallback?.bind(window) ??
     ((callback) => window.setTimeout(callback));
 let base = $("base")?.getAttribute("href") || "";
@@ -24,58 +24,69 @@ export default class Router {
     oldRoute;
     routingVersion = 0;
     constructor(routes, options = {}) {
-        const newRoutes = routes.flatMap((route) => {
-            const { children, ...routeConfig } = route;
-            const parent = createRoute(routeConfig);
-            if (!children)
-                return [parent];
-            const childRoutes = children.map((child) => ({
-                ...createRoute({
-                    ...child,
-                    path: `${route.path}/${child.path}`,
-                }),
-                isChildOf: parent,
-            }));
-            return [...childRoutes, parent];
-        });
+        const newRoutes = compileRoutes(routes, base).map(toRoute);
         this.routes = newRoutes;
         this.options = options;
         router = this;
+        const initialUrl = location.pathname + location.search;
+        const initialRoute = this.getMatchingRoute(initialUrl);
+        const initialOutlet = $(outletSelector);
+        const serverRoute = initialOutlet?.getAttribute("data-router-path");
+        const adoptsInitialRoute = initialRoute !== undefined &&
+            (serverRoute === initialUrl || serverRoute === location.pathname);
+        if (adoptsInitialRoute) {
+            initialOutlet.removeAttribute("data-router-path");
+        }
         // Prefetch resources
         this.routes.forEach((route) => {
+            if (adoptsInitialRoute && initialRoute.chain.includes(route.route)) {
+                return;
+            }
             // @ts-expect-error
             if (route.templateUrl && !navigator.connection?.saveData) {
                 scheduleIdle(() => {
-                    getTemplate(route).catch(async (err) => {
+                    getTemplate(route.route).catch(async (err) => {
                         await this.options.errorHandler?.(err);
                     });
                 });
             }
         });
-        this.doRouting();
+        this.doRouting(initialUrl, undefined, adoptsInitialRoute);
+        if (adoptsInitialRoute ||
+            initialRoute?.chain.every((segment) => !segment.templateUrl)) {
+            this.oldRoute = initialUrl;
+        }
     }
     getMatchingRoute(path) {
-        path = getRouteMatchPath(path);
-        return this.routes.find((route) => route.path.exec(path));
+        return resolveRoute(this.routes, path);
     }
-    async doRouting(to = location.pathname + location.search, e) {
+    finishRouting(routingVersion) {
+        if (routingVersion === this.routingVersion) {
+            dispatchEvent(new Event("afterRouting"));
+        }
+    }
+    async doRouting(to = location.pathname + location.search, e, adopt = false) {
         const routingVersion = ++this.routingVersion;
         const isCurrent = () => routingVersion === this.routingVersion;
         dispatchEvent(new Event("beforeRouting"));
         const from = this.oldRoute ?? to;
         const route = this.getMatchingRoute(to);
-        if (route) {
+        if (!route) {
+            this.finishRouting(routingVersion);
+            return;
+        }
+        {
             const routeStorageKey = `${storageKey}-${to}`;
             // Store position
             if (this.oldRoute) {
                 sessionStorage.setItem(`${storageKey}-${from}`, `${scrollX} ${scrollY}`);
             }
             try {
-                const { params } = match(route.originalPath, {
+                const { params } = match(route.pathname, {
                     decode: decodeURIComponent,
-                })(getRouteMatchPath(to));
+                })(getRoutePathname(to));
                 const allParams = {
-                    ...Router.getParams(),
+                    ...Router.getParams(new URL(to, location.href).search),
                     ...Object.fromEntries(Object.entries(params)
                         .map((pair) => Number.isNaN(Number(pair[0])) && pair)
                         .filter(Boolean)),
@@ -89,50 +100,22 @@ export default class Router {
                         : {}),
                 };
                 // Trigger leave
-                if (this.oldRoute) {
-                    const oldRoute = this.routes.find((route) => route.path.exec(getRouteMatchPath(this.oldRoute)));
-                    if (oldRoute) {
-                        await oldRoute["leave" /* cycles.leave */]?.(props);
-                        if (!isCurrent())
-                            return;
-                    }
+                const currentRoute = this.oldRoute
+                    ? this.getMatchingRoute(this.oldRoute)
+                    : undefined;
+                if (currentRoute) {
+                    await currentRoute["leave" /* cycles.leave */]?.(props);
+                    if (!isCurrent())
+                        return;
                 }
                 // Trigger beforeEnter
                 await route["beforeEnter" /* cycles.beforeEnter */]?.(props);
                 if (!isCurrent())
                     return;
-                // Handle template / element
-                if (!!route.isChildOf) {
-                    setReuseElements(false);
-                    const parent = route.isChildOf;
-                    if (parent.templateUrl) {
-                        await handleTemplate(parent, $(outletSelector), isCurrent);
-                        if (!isCurrent())
-                            return;
-                    }
-                    else if (parent.element) {
-                        const copy = $(outletSelector).cloneNode();
-                        copy.append(html `${parent.element}`);
-                        render(copy, outletSelector, false);
-                    }
-                    setReuseElements(true);
-                }
-                const where = route.isChildOf
-                    ? $(outletSelector).querySelector(outletSelector)
-                    : $(outletSelector);
-                if (route?.templateUrl) {
-                    await handleTemplate(route, where, isCurrent);
+                if (!adopt) {
+                    await renderRoute(route, currentRoute, $(outletSelector), isCurrent);
                     if (!isCurrent())
                         return;
-                }
-                else if (route?.element) {
-                    const copy = where.cloneNode();
-                    copy.append(html `${route.element}`);
-                    render(copy, where, false);
-                }
-                else {
-                    // Clear outlet
-                    $(outletSelector).textContent = null;
                 }
                 // Trigger afterEnter
                 await route["afterEnter" /* cycles.afterEnter */]?.(props);
@@ -149,10 +132,8 @@ export default class Router {
                 }
             }
             finally {
-                if (!isCurrent()) {
-                    dispatchEvent(new Event("afterRouting"));
+                if (!isCurrent())
                     return;
-                }
                 // Reload -> restore scroll position
                 if (route.restoreScroll && sessionStorage.getItem(routeStorageKey)) {
                     const [left, top] = sessionStorage
@@ -176,35 +157,37 @@ export default class Router {
                         });
                     }
                 }
-                dispatchEvent(new Event("afterRouting"));
+                this.finishRouting(routingVersion);
             }
         }
     }
     go(path, state = {}, params = "") {
-        this.oldRoute = location.pathname + location.search;
         const newPath = base + path + params;
         // Only navigate when the path differs
-        if (newPath !== this.oldRoute) {
+        if (newPath !== location.pathname + location.search) {
             history.pushState({ ...state }, "", newPath);
             this.doRouting(newPath);
         }
     }
     removeRoute(path) {
-        const idx = this.routes.findIndex((route) => String(route.path) ===
-            String(pathToRegexp(normalizeRoutePath(base + path)).regexp));
-        if (idx > -1) {
-            this.routes.splice(idx, 1);
+        const target = this.routes.find((route) => route.pathname === getCompiledPathname(path));
+        if (!target)
+            return;
+        for (let index = this.routes.length - 1; index >= 0; index--) {
+            if (this.routes[index].chain.includes(target.route)) {
+                this.routes.splice(index, 1);
+            }
         }
     }
     addRoute(route) {
-        this.routes.push(createRoute(route));
+        this.routes.push(...compileRoutes([route], base).map(toRoute));
     }
     modifyRoute(path, newRoute) {
-        const idx = this.routes.findIndex((route) => String(route.path) ===
-            String(pathToRegexp(normalizeRoutePath(base + path)).regexp));
-        if (idx > -1) {
-            this.routes[idx] = createRoute(newRoute);
-        }
+        const target = this.routes.find((route) => route.pathname === getCompiledPathname(path));
+        if (!target)
+            return;
+        const descendantIndexes = this.routes.flatMap((route, index) => route.chain.includes(target.route) ? [index] : []);
+        this.routes.splice(descendantIndexes[0], descendantIndexes.length, ...compileRoutes([newRoute], base).map(toRoute));
     }
     changeOptions(options) {
         this.options = options;
@@ -276,25 +259,16 @@ function replaceBars(hydroTerm) {
     const [_, hydroPath] = hydroTerm.match(reactivityRegex) || [];
     return hydroPath;
 }
-function normalizeRoutePath(path) {
-    return path
-        .replace(legacyQueryRegex, "")
-        .replace(optionalParamRegex, "{/:$1}");
-}
-function createRoute(route) {
-    const routePath = normalizeRoutePath(base + route.path);
+function toRoute(resolved) {
     return {
         restoreScroll: true,
-        ...route,
-        path: pathToRegexp(routePath).regexp,
-        originalPath: routePath,
+        ...resolved.route,
+        ...resolved,
+        originalPath: resolved.pathname,
     };
 }
-function getRouteMatchPath(path) {
-    if (path.startsWith(".")) {
-        path = path.replace(".", "");
-    }
-    return path.split(/[?#]/, 1)[0] || "/";
+function getCompiledPathname(path) {
+    return compileRoutes([{ path }], base)[0].pathname;
 }
 // Add EventListener for every added anchor and form Element
 $$("a").forEach(registerAnchorEvent);
@@ -321,14 +295,43 @@ new MutationObserver((entries) => {
         }
     }
 }).observe(document.body, { childList: true, subtree: true });
-async function handleTemplate(route, where, isCurrent = () => true) {
-    const copy = where.cloneNode();
-    const template = window.isHMR
-        ? await (await fetch(route.templateUrl)).text()
-        : await getTemplate(route);
+async function renderRoute(route, currentRoute, where, isCurrent) {
+    let sharedSegments = 0;
+    while (currentRoute?.chain[sharedSegments] === route.chain[sharedSegments] &&
+        sharedSegments < route.chain.length) {
+        sharedSegments++;
+    }
+    if (sharedSegments === route.chain.length)
+        sharedSegments--;
+    for (let index = 0; index < sharedSegments; index++) {
+        const nestedOutlet = where.querySelector(outletSelector);
+        if (!nestedOutlet)
+            break;
+        where = nestedOutlet;
+    }
+    const routeChain = route.chain.slice(sharedSegments);
+    const templates = await Promise.all(routeChain.map(async (segment) => segment.templateUrl
+        ? window.isHMR
+            ? (await fetch(segment.templateUrl)).text()
+            : getTemplate(segment)
+        : segment.element));
     if (!isCurrent())
         return;
-    copy.append(html `${template}`);
+    const copy = where.cloneNode();
+    let outlet = copy;
+    for (let index = 0; index < routeChain.length; index++) {
+        const content = templates[index];
+        if (content !== undefined)
+            outlet.append(html `${content}`);
+        if (index === routeChain.length - 1)
+            continue;
+        const nestedOutlet = outlet.querySelector(outletSelector);
+        if (!nestedOutlet) {
+            throw new Error(`Route ${route.pathname} needs a nested ${outletSelector}`);
+        }
+        nestedOutlet.replaceChildren();
+        outlet = nestedOutlet;
+    }
     render(copy, where, false);
 }
 function getTemplate(route) {

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Router SSR Tests</title>
+    <script type="module">
+      import { runTests } from "@web/test-runner-mocha";
+      import { expect } from "@esm-bundle/chai";
+      import Router, { compileRoutes, resolveRoute } from "/src/bundle.js";
+
+      const sleep = (time) =>
+        new Promise((resolve) => setTimeout(resolve, time));
+
+      runTests(() => {
+        describe("server-rendered route adoption", () => {
+          it("resolves arbitrary nested route chains outside the browser router", () => {
+            const manifest = [
+              {
+                path: "/docs",
+                children: [
+                  {
+                    path: "guides",
+                    children: [{ path: ":slug" }],
+                  },
+                ],
+              },
+            ];
+            const route = resolveRoute(
+              compileRoutes(manifest),
+              "/docs/guides/routing?mode=ssr",
+            );
+
+            expect(route.pathname).to.equal("/docs/guides/:slug");
+            expect(route.chain).to.deep.equal([
+              manifest[0],
+              manifest[0].children[0],
+              manifest[0].children[0].children[0],
+            ]);
+          });
+
+          it("adopts matching markup and routes later navigation normally", async () => {
+            const outlet = document.querySelector("[data-outlet]");
+            const serverNode = outlet.firstElementChild;
+            const initialPath = location.pathname;
+            const initialUrl = location.pathname + location.search;
+            const destinationPath = `${location.pathname}/destination`;
+            const originalFetch = window.fetch;
+            const requests = [];
+
+            outlet.setAttribute("data-router-path", initialUrl);
+            window.fetch = async (input) => {
+              requests.push(String(input));
+              return new Response("<h1>Destination</h1>");
+            };
+
+            try {
+              const router = new Router([
+                { path: initialPath, templateUrl: "/initial.html" },
+              ]);
+
+              await sleep(30);
+
+              expect(requests).to.deep.equal([]);
+              expect(outlet.firstElementChild).to.equal(serverNode);
+              expect(router.oldRoute).to.equal(initialUrl);
+
+              router.addRoute({
+                path: destinationPath,
+                templateUrl: "/destination.html",
+              });
+              router.go(destinationPath);
+              await sleep(30);
+
+              expect(requests).to.deep.equal(["/destination.html"]);
+              expect(
+                document.querySelector("[data-outlet]").textContent,
+              ).to.include("Destination");
+            } finally {
+              window.fetch = originalFetch;
+            }
+          });
+
+          it("adopts a static path marker when the URL has a query", async () => {
+            const outlet = document.querySelector("[data-outlet]");
+            const originalFetch = window.fetch;
+            const originalUrl = location.pathname + location.search;
+            const requests = [];
+            history.replaceState({}, "", `${location.pathname}?static=1`);
+            outlet.setAttribute("data-router-path", location.pathname);
+            window.fetch = async (input) => {
+              requests.push(String(input));
+              return new Response("Unexpected");
+            };
+
+            try {
+              const router = new Router([
+                { path: location.pathname, templateUrl: "/initial.html" },
+              ]);
+              await sleep(10);
+
+              expect(requests).to.deep.equal([]);
+              expect(router.oldRoute).to.equal(`${location.pathname}?static=1`);
+            } finally {
+              history.replaceState({}, "", originalUrl);
+              window.fetch = originalFetch;
+            }
+          });
+
+          it("commits a nested route only after every template resolves", async () => {
+            const outlet = document.querySelector("[data-outlet]");
+            const currentPath = location.pathname;
+            const destinationPath = `${currentPath}/atomic`;
+            const originalFetch = window.fetch;
+            let resolveChild;
+            outlet.innerHTML = "<h1>Current route</h1>";
+            outlet.setAttribute("data-router-path", currentPath);
+
+            window.fetch = async (input) => {
+              if (String(input) === "/parent.html") {
+                return new Response(
+                  "<section><div data-outlet><h1>Parent default</h1></div></section>",
+                );
+              }
+              return new Promise((resolve) => {
+                resolveChild = () =>
+                  resolve(new Response("<h2>Atomic child</h2>"));
+              });
+            };
+
+            try {
+              let routeError;
+              const router = new Router(
+                [
+                  { path: currentPath },
+                  {
+                    path: currentPath,
+                    templateUrl: "/parent.html",
+                    children: [{ path: "atomic", templateUrl: "/child.html" }],
+                  },
+                ],
+                { errorHandler: (error) => (routeError = error) },
+              );
+              const navigation = router.doRouting(destinationPath);
+              await sleep(10);
+
+              expect(outlet.textContent).to.include("Current route");
+              expect(outlet.textContent).not.to.include("Parent default");
+
+              resolveChild();
+              await navigation;
+
+              expect(routeError).to.equal(undefined);
+              const committedOutlet = document.querySelector("[data-outlet]");
+              expect(committedOutlet.textContent).to.include("Atomic child");
+              expect(committedOutlet.textContent).not.to.include(
+                "Parent default",
+              );
+            } finally {
+              window.fetch = originalFetch;
+            }
+          });
+
+          it("restores parent content when leaving a child route", async () => {
+            const outlet = document.querySelector("[data-outlet]");
+            const parentPath = location.pathname;
+            const childPath = `${parentPath}/child`;
+            const originalFetch = window.fetch;
+            outlet.innerHTML =
+              "<section><div data-outlet><h2>Child content</h2></div></section>";
+            outlet.setAttribute("data-router-path", childPath);
+            window.fetch = async () =>
+              new Response(
+                "<section><div data-outlet><h2>Parent default</h2></div></section>",
+              );
+
+            try {
+              const router = new Router([
+                {
+                  path: parentPath,
+                  templateUrl: "/parent.html",
+                  children: [{ path: "child", element: "<h2>Child</h2>" }],
+                },
+              ]);
+              await router.doRouting(parentPath);
+
+              expect(
+                document.querySelector("[data-outlet]").textContent,
+              ).to.include("Parent default");
+            } finally {
+              window.fetch = originalFetch;
+            }
+          });
+
+          it("removes descendants when removing a parent route", () => {
+            const path = `${location.pathname}/mutable`;
+            const router = new Router([{ path: location.pathname }]);
+            router.addRoute({
+              path,
+              children: [{ path: "child", element: "Child" }],
+            });
+
+            router.removeRoute(path);
+
+            expect(
+              router.routes.some((route) =>
+                route.originalPath.includes("mutable"),
+              ),
+            ).to.equal(false);
+          });
+
+          it("replaces descendants when modifying a parent route", () => {
+            const path = `${location.pathname}/old-parent`;
+            const router = new Router([{ path: location.pathname }]);
+            router.addRoute({
+              path,
+              children: [{ path: "old-child", element: "Old" }],
+            });
+
+            router.modifyRoute(path, {
+              path: `${location.pathname}/new-parent`,
+              children: [{ path: "new-child", element: "New" }],
+            });
+
+            expect(
+              router.routes.some((route) =>
+                route.originalPath.includes("old-parent"),
+              ),
+            ).to.equal(false);
+            expect(
+              router.routes.some((route) =>
+                route.originalPath.includes("new-parent/new-child"),
+              ),
+            ).to.equal(true);
+          });
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <main data-outlet>
+      <h1 data-server-node>Server route</h1>
+    </main>
+  </body>
+</html>

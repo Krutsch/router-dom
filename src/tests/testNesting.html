@@ -12,6 +12,11 @@
 
       const sleep = (time) =>
         new Promise((resolve) => setTimeout(resolve, time));
+      const waitForRouting = (navigate) =>
+        new Promise((resolve) => {
+          addEventListener("afterRouting", resolve, { once: true });
+          navigate();
+        });
 
       runTests(() => {
         let router;
@@ -86,8 +91,7 @@
             expect(location.pathname).to.equal("/settings/profile");
             expect($("body").textContent).to.include("Edit your profile");
 
-            history.back();
-            await sleep(50);
+            await waitForRouting(() => history.back());
             expect(location.pathname).to.equal("/settings/emails");
             expect($("body").textContent).to.include("Email Subscriptions");
 
