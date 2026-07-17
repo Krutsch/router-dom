@@ -113,7 +113,7 @@ export default class Router {
                 if (!isCurrent())
                     return;
                 if (!adopt) {
-                    await renderRoute(route, currentRoute, $(outletSelector), isCurrent);
+                    await renderRoute(route, currentRoute, $(outletSelector), isCurrent, this.options.viewTransitions);
                     if (!isCurrent())
                         return;
                 }
@@ -295,7 +295,7 @@ new MutationObserver((entries) => {
         }
     }
 }).observe(document.body, { childList: true, subtree: true });
-async function renderRoute(route, currentRoute, where, isCurrent) {
+async function renderRoute(route, currentRoute, where, isCurrent, viewTransitions = false) {
     let sharedSegments = 0;
     while (currentRoute?.chain[sharedSegments] === route.chain[sharedSegments] &&
         sharedSegments < route.chain.length) {
@@ -332,7 +332,16 @@ async function renderRoute(route, currentRoute, where, isCurrent) {
         nestedOutlet.replaceChildren();
         outlet = nestedOutlet;
     }
-    render(copy, where, false);
+    if (!viewTransitions || !document.startViewTransition) {
+        render(copy, where, false);
+        return;
+    }
+    const transition = document.startViewTransition(() => {
+        if (isCurrent())
+            render(copy, where, false);
+    });
+    void transition.ready.catch(() => { });
+    await transition.updateCallbackDone;
 }
 function getTemplate(route) {
     let cache = fetchCache.get(route);

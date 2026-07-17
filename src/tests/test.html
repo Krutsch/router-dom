@@ -168,6 +168,60 @@
             expect($("[data-outlet]").textContent).to.include("b");
           });
 
+          it("uses view transitions only when configured", async () => {
+            const originalDescriptor = Object.getOwnPropertyDescriptor(
+              document,
+              "startViewTransition",
+            );
+            let transitionCount = 0;
+            let unhandledRejection = false;
+            const handleUnhandledRejection = (event) => {
+              unhandledRejection = true;
+              event.preventDefault();
+            };
+            addEventListener("unhandledrejection", handleUnhandledRejection);
+            Object.defineProperty(document, "startViewTransition", {
+              configurable: true,
+              value(update) {
+                transitionCount++;
+                update();
+                return {
+                  ready: Promise.reject(
+                    new DOMException("Transition was skipped", "AbortError"),
+                  ),
+                  updateCallbackDone: Promise.resolve(),
+                };
+              },
+            });
+
+            try {
+              router.go("/a");
+              await sleep(50);
+              expect(transitionCount).to.equal(0);
+
+              router.changeOptions({ viewTransitions: true });
+              router.go("/b");
+              await sleep(50);
+              expect(transitionCount).to.equal(1);
+              expect(unhandledRejection).to.be.false;
+              expect($("[data-outlet]").textContent).to.include("b");
+            } finally {
+              removeEventListener(
+                "unhandledrejection",
+                handleUnhandledRejection,
+              );
+              if (originalDescriptor) {
+                Object.defineProperty(
+                  document,
+                  "startViewTransition",
+                  originalDescriptor,
+                );
+              } else {
+                Reflect.deleteProperty(document, "startViewTransition");
+              }
+            }
+          });
+
           it("shares one request between navigation and idle prefetch", async () => {
             const originalFetch = window.fetch;
             let fetchCalls = 0;

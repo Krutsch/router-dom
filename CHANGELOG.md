@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.0 2026-07-17
+
+- add ViewTransition for SPA
+
 ## 3.2.0 2026-07-17
 
 - improved SSR compatibility

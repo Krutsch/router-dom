@@ -43,6 +43,7 @@ interface Options {
     formHandler?(res: Response, e: Event): Promise<any> | void;
     scrollBehavior?: ScrollBehavior;
     fetchOptions?: RequestInit;
+    viewTransitions?: boolean;
 }
 interface RoutingProps {
     from: string;

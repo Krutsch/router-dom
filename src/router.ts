@@ -162,7 +162,13 @@ export default class Router {
         if (!isCurrent()) return;
 
         if (!adopt) {
-          await renderRoute(route, currentRoute, $(outletSelector)!, isCurrent);
+          await renderRoute(
+            route,
+            currentRoute,
+            $(outletSelector)!,
+            isCurrent,
+            this.options.viewTransitions,
+          );
           if (!isCurrent()) return;
         }
         // Trigger afterEnter
@@ -376,6 +382,7 @@ async function renderRoute(
   currentRoute: Route | undefined,
   where: Element,
   isCurrent: () => boolean,
+  viewTransitions = false,
 ) {
   let sharedSegments = 0;
   while (
@@ -419,7 +426,16 @@ async function renderRoute(
     outlet = nestedOutlet;
   }
 
-  render(copy, where, false);
+  if (!viewTransitions || !document.startViewTransition) {
+    render(copy, where, false);
+    return;
+  }
+
+  const transition = document.startViewTransition(() => {
+    if (isCurrent()) render(copy, where, false);
+  });
+  void transition.ready.catch(() => {});
+  await transition.updateCallbackDone;
 }
 
 function getTemplate(route: RouteParam): Promise<string> {
@@ -469,6 +485,7 @@ interface Options {
   formHandler?(res: Response, e: Event): Promise<any> | void;
   scrollBehavior?: ScrollBehavior;
   fetchOptions?: RequestInit;
+  viewTransitions?: boolean;
 }
 interface RoutingProps {
   from: string;
