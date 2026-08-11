@@ -56,6 +56,7 @@ export default class Router {
     this.options = options;
 
     router = this;
+    history.scrollRestoration = "manual";
 
     const initialUrl = location.pathname + location.search;
     const initialRoute = this.getMatchingRoute(initialUrl);

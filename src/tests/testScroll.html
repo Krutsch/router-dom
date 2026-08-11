@@ -12,11 +12,53 @@
 
       const sleep = (time) =>
         new Promise((resolve) => setTimeout(resolve, time));
+      const waitForRouting = () =>
+        new Promise((resolve) =>
+          addEventListener("afterRouting", resolve, { once: true }),
+        );
 
       runTests(() => {
         let router;
 
         describe("router", () => {
+          it("uses manual history scroll restoration", async () => {
+            router = new Router(
+              [
+                {
+                  path: "/scroll-a",
+                  element: `<div style="height: 2000px;">A</div>`,
+                },
+                {
+                  path: "/scroll-b",
+                  element: `<div style="height: 2000px;">B</div>`,
+                },
+              ],
+              { viewTransitions: true },
+            );
+
+            expect(history.scrollRestoration).to.equal("manual");
+
+            let routing = waitForRouting();
+            router.go("/scroll-a");
+            await routing;
+
+            window.scrollTo(0, 500);
+            routing = waitForRouting();
+            router.go("/scroll-b");
+            await routing;
+            expect(window.scrollY).to.equal(0);
+
+            routing = waitForRouting();
+            history.back();
+            await routing;
+            expect(window.scrollY).to.equal(500);
+
+            routing = waitForRouting();
+            history.forward();
+            await routing;
+            expect(window.scrollY).to.equal(0);
+          });
+
           it("restores the scroll height", async () => {
             router = new Router([
               {
