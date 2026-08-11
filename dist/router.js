@@ -1,6 +1,6 @@
-import { match } from "path-to-regexp";
-import { render, html, hydro, $, $$ } from "hydro-js";
+import { render, html, hydro, $ } from "hydro-js";
 import { compileRoutes, getRoutePathname, resolveRoute, } from "./routes.js";
+import { setupNavigation } from "./navigation.js";
 export { compileRoutes, resolveRoute } from "./routes.js";
 let router;
 const storageKey = "router-scroll";
@@ -13,21 +13,29 @@ let base = $("base")?.getAttribute("href") || "";
 if (base.endsWith("/")) {
     base = [...base].slice(0, -1).join("");
 }
-addEventListener("popstate", async (e) => {
-    router?.doRouting(location.pathname + location.search, e);
-});
 // Reload -> store scrollPosition
 addEventListener("beforeunload", () => sessionStorage.setItem(`${storageKey}-${location.pathname + location.search}`, `${scrollX} ${scrollY}`));
 export default class Router {
     options;
     routes;
     oldRoute;
+    navigation;
     routingVersion = 0;
     constructor(routes, options = {}) {
         const newRoutes = compileRoutes(routes, base).map(toRoute);
         this.routes = newRoutes;
         this.options = options;
         router = this;
+        this.navigation = setupNavigation({
+            base,
+            onNavigate: (url, event, state) => router === this
+                ? this.doRouting(url, event, false, state, event.signal)
+                : undefined,
+            getAnchorState: (anchor) => {
+                const data = anchor.getAttribute("data");
+                return data === null ? undefined : hydro[replaceBars(data)];
+            },
+        });
         history.scrollRestoration = "manual";
         const initialUrl = location.pathname + location.search;
         const initialRoute = this.getMatchingRoute(initialUrl);
@@ -62,13 +70,15 @@ export default class Router {
         return resolveRoute(this.routes, path);
     }
     finishRouting(routingVersion) {
-        if (routingVersion === this.routingVersion) {
+        if (router === this && routingVersion === this.routingVersion) {
             dispatchEvent(new Event("afterRouting"));
         }
     }
-    async doRouting(to = location.pathname + location.search, e, adopt = false) {
+    async doRouting(to = location.pathname + location.search, e, adopt = false, state, signal) {
         const routingVersion = ++this.routingVersion;
-        const isCurrent = () => routingVersion === this.routingVersion;
+        const isCurrent = () => router === this &&
+            routingVersion === this.routingVersion &&
+            !signal?.aborted;
         dispatchEvent(new Event("beforeRouting"));
         const from = this.oldRoute ?? to;
         const route = this.getMatchingRoute(to);
@@ -83,21 +93,26 @@ export default class Router {
                 sessionStorage.setItem(`${storageKey}-${from}`, `${scrollX} ${scrollY}`);
             }
             try {
-                const { params } = match(route.pathname, {
-                    decode: decodeURIComponent,
-                })(getRoutePathname(to));
+                const params = route.path.exec({ pathname: getRoutePathname(to) })?.pathname.groups ??
+                    {};
                 const allParams = {
                     ...Router.getParams(new URL(to, location.href).search),
                     ...Object.fromEntries(Object.entries(params)
-                        .map((pair) => Number.isNaN(Number(pair[0])) && pair)
-                        .filter(Boolean)),
+                        .filter(([key, value]) => Number.isNaN(Number(key)) && value !== undefined)
+                        .map(([key, value]) => [key, decodeURIComponent(value)])),
                 };
+                const navigationState = state !== undefined
+                    ? state
+                    : this.navigation.currentEntry?.getState();
+                const stateObject = navigationState !== null && typeof navigationState === "object"
+                    ? navigationState
+                    : undefined;
                 const props = {
                     from: from.replace(base, ""),
                     to: to.replace(base, ""),
                     ...(Object.keys(allParams).length ? { params: allParams } : {}),
-                    ...(history.state && Object.keys(history.state).length
-                        ? { state: history.state }
+                    ...(stateObject && Object.keys(stateObject).length
+                        ? { state: stateObject }
                         : {}),
                 };
                 // Trigger leave
@@ -166,8 +181,9 @@ export default class Router {
         const newPath = base + path + params;
         // Only navigate when the path differs
         if (newPath !== location.pathname + location.search) {
-            history.pushState({ ...state }, "", newPath);
-            this.doRouting(newPath);
+            void this.navigation
+                .navigate(newPath, { state: { ...state } })
+                .finished?.catch(() => { });
         }
     }
     removeRoute(path) {
@@ -197,61 +213,29 @@ export default class Router {
         return Object.fromEntries(new URLSearchParams(search));
     }
 }
-function registerAnchorEvent(anchor) {
-    anchor.addEventListener("click", (e) => {
-        const href = anchor.getAttribute("href");
-        const target = anchor.getAttribute("target");
-        if (e.defaultPrevented ||
-            e.button !== 0 ||
-            e.metaKey ||
-            e.ctrlKey ||
-            e.shiftKey ||
-            e.altKey ||
-            !href ||
-            anchor.hasAttribute("download") ||
-            (target && target !== "_self")) {
-            return;
+function handleFormEvent(e) {
+    if (!router?.options.formHandler || !(e.target instanceof HTMLFormElement)) {
+        return;
+    }
+    e.preventDefault();
+    const form = e.target;
+    const action = form.action;
+    const method = form.method.toUpperCase();
+    fetch(action, {
+        method,
+        ...(!["HEAD", "GET"].includes(method)
+            ? { body: new FormData(form) }
+            : {}),
+        ...router.options.fetchOptions,
+    })
+        .then((res) => router.options.formHandler(res, e))
+        .catch(async (err) => {
+        if (router.options.errorHandler) {
+            await router.options.errorHandler(err, e);
         }
-        const url = new URL(href, location.href);
-        if (url.origin !== location.origin ||
-            !["http:", "https:"].includes(url.protocol) ||
-            (url.hash &&
-                url.pathname === location.pathname &&
-                url.search === location.search)) {
-            return;
+        else {
+            console.error(err, e);
         }
-        e.preventDefault();
-        const hasData = anchor.getAttribute("data");
-        const hydroProp = replaceBars(hasData);
-        const path = url.pathname.startsWith(`${base}/`)
-            ? url.pathname.slice(base.length)
-            : url.pathname;
-        router.go(path + url.search + url.hash, hasData ? hydro[hydroProp] : void 0);
-    });
-}
-function registerFormEvent(form) {
-    form.addEventListener("submit", (e) => {
-        if (!router.options.formHandler)
-            return;
-        e.preventDefault();
-        const action = form.action;
-        const method = form.method.toUpperCase();
-        fetch(action, {
-            method,
-            ...(!["HEAD", "GET"].includes(method)
-                ? { body: new FormData(form) }
-                : {}),
-            ...router.options.fetchOptions,
-        })
-            .then((res) => router.options.formHandler(res, e))
-            .catch(async (err) => {
-            if (router.options.errorHandler) {
-                await router.options.errorHandler(err, e);
-            }
-            else {
-                console.error(err, e);
-            }
-        });
     });
 }
 function replaceBars(hydroTerm) {
@@ -271,31 +255,7 @@ function toRoute(resolved) {
 function getCompiledPathname(path) {
     return compileRoutes([{ path }], base)[0].pathname;
 }
-// Add EventListener for every added anchor and form Element
-$$("a").forEach(registerAnchorEvent);
-$$("form").forEach(registerFormEvent);
-new MutationObserver((entries) => {
-    for (const entry of entries) {
-        for (const node of entry.addedNodes) {
-            const nodes = document.createNodeIterator(node, NodeFilter.SHOW_ELEMENT, {
-                acceptNode(elem) {
-                    return ["form", "a"].includes(elem.localName)
-                        ? NodeFilter.FILTER_ACCEPT
-                        : NodeFilter.FILTER_REJECT;
-                },
-            });
-            let formOrA;
-            while ((formOrA = nodes.nextNode())) {
-                if (formOrA.localName === "a") {
-                    registerAnchorEvent(formOrA);
-                }
-                else {
-                    registerFormEvent(formOrA);
-                }
-            }
-        }
-    }
-}).observe(document.body, { childList: true, subtree: true });
+document.addEventListener("submit", handleFormEvent);
 async function renderRoute(route, currentRoute, where, isCurrent, viewTransitions = false) {
     let sharedSegments = 0;
     while (currentRoute?.chain[sharedSegments] === route.chain[sharedSegments] &&

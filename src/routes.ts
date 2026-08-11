@@ -1,7 +1,18 @@
-import { pathToRegexp } from "path-to-regexp";
-
-const optionalParamRegex = /\/:([A-Za-z_$][\w$]*)\?/g;
 const legacyQueryRegex = /\(\\\?\)\?\(\.\*\)$/;
+
+export interface RoutePattern {
+  exec(input: { pathname: string }): RoutePatternResult | null;
+}
+
+export interface RoutePatternResult {
+  pathname: {
+    groups: Record<string, string | undefined>;
+  };
+}
+
+interface URLPatternConstructor {
+  new (input: { pathname: string }): RoutePattern;
+}
 
 export interface RouteDefinition {
   path: string;
@@ -11,7 +22,7 @@ export interface RouteDefinition {
 export interface ResolvedRoute<T extends RouteDefinition = RouteDefinition> {
   route: T;
   chain: T[];
-  path: RegExp;
+  path: RoutePattern;
   pathname: string;
 }
 
@@ -27,7 +38,7 @@ export function resolveRoute<T extends RouteDefinition>(
   url: string,
 ): ResolvedRoute<T> | undefined {
   const pathname = getRoutePathname(url);
-  return routes.find((route) => route.path.exec(pathname));
+  return routes.find((route) => route.path.exec({ pathname }));
 }
 
 export function getRoutePathname(url: string): string {
@@ -55,16 +66,26 @@ function compileRoute<T extends RouteDefinition>(
     {
       route,
       chain,
-      path: pathToRegexp(normalizeRoutePath(pathname)).regexp,
+      path: createRoutePattern(normalizeRoutePath(pathname)),
       pathname: normalizeRoutePath(pathname),
     },
   ];
 }
 
 function normalizeRoutePath(path: string): string {
-  return path
-    .replace(legacyQueryRegex, "")
-    .replace(optionalParamRegex, "{/:$1}");
+  return path.replace(legacyQueryRegex, "");
+}
+
+function createRoutePattern(pathname: string): RoutePattern {
+  const URLPatternConstructor = (
+    globalThis as typeof globalThis & {
+      URLPattern?: URLPatternConstructor;
+    }
+  ).URLPattern;
+  if (!URLPatternConstructor) {
+    throw new Error("router-dom requires URLPattern");
+  }
+  return new URLPatternConstructor({ pathname });
 }
 
 function normalizeSlashes(path: string): string {

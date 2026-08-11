@@ -4,11 +4,12 @@ export default class Router {
     options: Options;
     routes: [Route, ...Route[]];
     oldRoute: undefined | string;
+    private navigation;
     private routingVersion;
     constructor(routes: [RouteParam, ...RouteParam[]], options?: Options);
     private getMatchingRoute;
     private finishRouting;
-    doRouting(to?: string, e?: PopStateEvent, adopt?: boolean): Promise<void>;
+    doRouting(to?: string, e?: Event, adopt?: boolean, state?: unknown, signal?: AbortSignal): Promise<void>;
     go(path: string, state?: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;
@@ -39,7 +40,7 @@ interface Route extends RouteBasic, ResolvedRoute<RouteParam> {
     originalPath: string;
 }
 interface Options {
-    errorHandler?(err: unknown, e?: PopStateEvent | Event): Promise<any> | void;
+    errorHandler?(err: unknown, e?: Event): Promise<any> | void;
     formHandler?(res: Response, e: Event): Promise<any> | void;
     scrollBehavior?: ScrollBehavior;
     fetchOptions?: RequestInit;

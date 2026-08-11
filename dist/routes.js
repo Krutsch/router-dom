@@ -1,12 +1,10 @@
-import { pathToRegexp } from "path-to-regexp";
-const optionalParamRegex = /\/:([A-Za-z_$][\w$]*)\?/g;
 const legacyQueryRegex = /\(\\\?\)\?\(\.\*\)$/;
 export function compileRoutes(routes, base = "") {
     return routes.flatMap((route) => compileRoute(route, [], base));
 }
 export function resolveRoute(routes, url) {
     const pathname = getRoutePathname(url);
-    return routes.find((route) => route.path.exec(pathname));
+    return routes.find((route) => route.path.exec({ pathname }));
 }
 export function getRoutePathname(url) {
     if (url.startsWith("."))
@@ -29,15 +27,20 @@ function compileRoute(route, parents, parentPath) {
         {
             route,
             chain,
-            path: pathToRegexp(normalizeRoutePath(pathname)).regexp,
+            path: createRoutePattern(normalizeRoutePath(pathname)),
             pathname: normalizeRoutePath(pathname),
         },
     ];
 }
 function normalizeRoutePath(path) {
-    return path
-        .replace(legacyQueryRegex, "")
-        .replace(optionalParamRegex, "{/:$1}");
+    return path.replace(legacyQueryRegex, "");
+}
+function createRoutePattern(pathname) {
+    const URLPatternConstructor = globalThis.URLPattern;
+    if (!URLPatternConstructor) {
+        throw new Error("router-dom requires URLPattern");
+    }
+    return new URLPatternConstructor({ pathname });
 }
 function normalizeSlashes(path) {
     const normalized = path.replace(/\/{2,}/g, "/");

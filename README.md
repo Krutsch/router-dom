@@ -7,7 +7,7 @@
 > - simple: define your routes, start to listen global event and to route changes.
 > - base href support.
 > - opt-in errorHandler and formHandler.
-> - support in all modern browsers.
+> - uses the browser Navigation API for client-side routing.
 > - Dynamic route params and nested Routes.
 
 ## Demo
@@ -43,10 +43,25 @@ or via CDN:
 
 ## Dependencies
 
-[path-to-regexp](https://github.com/pillarjs/path-to-regexp): Turn a path string such as '/user/:name' into a regular expression<br>
 [hydro-js](https://github.com/Krutsch/hydro-js): Renders the view. In order to pass state via an anchor element (data attribute), a mapping on the hydro object is needed.<br>
 
 ## Documentation
+
+### Navigation API
+
+router-dom uses the browser Navigation API as its routing mechanism. It requires
+`window.navigation`, `Navigation.navigate()`, `NavigateEvent.intercept()`, and
+`URLPattern`; there is no History API routing fallback. External links,
+downloads, modified clicks, and hash-only links keep their native browser
+behavior.
+
+Route paths use native URLPattern pathname syntax, including named params such
+as `/users/:id` and optional params such as `/users/:id?`. URLPattern is also
+used by the exported `compileRoutes` and `resolveRoute` helpers.
+
+State passed to `go` or a `data` anchor is stored on the navigation entry and is
+available to lifecycle hooks as `state`. It can also be read with
+`navigation.currentEntry.getState()`.
 
 ### Events
 

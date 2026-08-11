@@ -86,40 +86,48 @@
               .true;
           });
 
-          it("goes to the correct route when clicking on an element", () => {
+          it("goes to the correct route when clicking on an element", async () => {
             $("#home").click();
+            await sleep(50);
             expect(location.pathname + location.search).to.equal(base + "/");
 
             $("#a").click();
+            await sleep(50);
             expect(location.pathname + location.search).to.equal(base + "/a");
 
             $("#b").click();
+            await sleep(50);
             expect(location.pathname + location.search).to.equal(base + "/b");
 
             $("#home").click();
+            await sleep(50);
             expect(location.pathname + location.search).to.equal(base + "/");
           });
 
-          it("goes to the correct route when clicking on an element - with params", () => {
+          it("goes to the correct route when clicking on an element - with params", async () => {
             $("#param").click();
+            await sleep(50);
             expect(location.pathname).to.equal(base + "/a");
             expect(location.search).to.equal("?q=testing");
           });
 
-          it("goes to the correct route when clicking on an element (API)", () => {
+          it("goes to the correct route when clicking on an element (API)", async () => {
             router.go("/a?q=testing2");
+            await sleep(50);
             expect(location.pathname).to.equal(base + "/a");
             expect(location.search).to.equal("?q=testing2");
           });
 
-          it("goes to the correct route when clicking on an element - with params (API)", () => {
+          it("goes to the correct route when clicking on an element - with params (API)", async () => {
             router.go("/b", {}, "?q=testing3");
+            await sleep(50);
             expect(location.pathname).to.equal(base + "/b");
             expect(location.search).to.equal("?q=testing3");
           });
 
-          it("goes to the correct route (param with spaces) and returns the correct params", () => {
+          it("goes to the correct route (param with spaces) and returns the correct params", async () => {
             router.go("/b?q=test value");
+            await sleep(50);
             expect(location.pathname).to.equal(base + "/b");
             expect(location.search).to.equal("?q=test%20value");
             expect(Router.getParams()).to.deep.equal({ q: "test value" });
@@ -128,13 +136,15 @@
           it("sends data via API", () => {
             const data = { awesome: 42 };
             router.go("/a", data);
-            expect(history.state).to.deep.equal(data);
+            expect(navigation.currentEntry.getState()).to.deep.equal(data);
           });
 
           it("sends data via element", () => {
             hydro.data = { awesome: 42 };
             $("#data").click();
-            expect(history.state).to.deep.equal(hydro.data);
+            expect(navigation.currentEntry.getState()).to.deep.equal(
+              hydro.data,
+            );
           });
 
           it("renders into data-outlet", async () => {

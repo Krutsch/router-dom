@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.0.0-rc0 2026-08-11
+
+- migrate client-side routing from the History API to the browser Navigation API
+- replace path-to-regexp with native URLPattern route matching
+- preserve lifecycle hooks, nested routes, forms, prefetching, scroll restoration, SSR adoption, and View Transitions
+
+## 3.3.1 2026-08-11
+
+- add manual routing information for back/forward cache
+
 ## 3.3.0 2026-07-17
 
 - add ViewTransition for SPA

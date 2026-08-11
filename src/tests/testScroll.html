@@ -80,8 +80,7 @@
             router.oldRoute = null;
             window.scrollTo(0, 0);
 
-            window.dispatchEvent(new Event("popstate"));
-            await sleep(50);
+            await router.doRouting(location.pathname + location.search);
             expect(window.scrollY).not.to.equal(0);
           });
 
@@ -107,8 +106,7 @@
             router.oldRoute = null;
             window.scrollTo(0, 0);
 
-            window.dispatchEvent(new Event("popstate"));
-            await sleep(50);
+            await router.doRouting(location.pathname + location.search);
             expect(window.scrollY).to.equal(0);
           });
 

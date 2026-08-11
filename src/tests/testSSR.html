@@ -37,6 +37,7 @@
               manifest[0].children[0],
               manifest[0].children[0].children[0],
             ]);
+            expect(route.path).to.be.instanceOf(URLPattern);
           });
 
           it("adopts matching markup and routes later navigation normally", async () => {
