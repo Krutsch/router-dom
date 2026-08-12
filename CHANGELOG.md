@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.3 2026-08-12
+
+- correct the hydro-js peer dependency metadata
+
 ## 3.3.2 2026-08-12
 
 - add peer-dep hydro-js
