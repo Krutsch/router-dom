@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.3.2 2026-08-12
+
+- add peer-dep hydro-js
+
+## 3.3.1 2026-08-11
+
+- add manual scroll restoration for back/forward cache
+
 ## 3.3.0 2026-07-17
 
 - add ViewTransition for SPA
