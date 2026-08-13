@@ -34,6 +34,7 @@ export function setupNavigation(nextCallbacks: NavigationCallbacks): Navigation 
 function handleNavigate(event: NavigateEvent) {
   if (
     !event.canIntercept ||
+    event.navigationType === "reload" ||
     event.hashChange ||
     event.downloadRequest !== null ||
     isFormNavigation(event)

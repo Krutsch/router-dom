@@ -18,6 +18,7 @@ export function setupNavigation(nextCallbacks) {
 }
 function handleNavigate(event) {
     if (!event.canIntercept ||
+        event.navigationType === "reload" ||
         event.hashChange ||
         event.downloadRequest !== null ||
         isFormNavigation(event)) {

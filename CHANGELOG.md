@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.0.0-rc2 2026-08-13
+
+- preserve native page reloads when using the Navigation API
+
+## 4.0.0-rc1 2026-08-11
+
+- correct peer version
+
 ## 4.0.0-rc0 2026-08-11
 
 - migrate client-side routing from the History API to the browser Navigation API

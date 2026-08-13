@@ -108,6 +108,22 @@
             expectIgnored($("#download"));
           });
 
+          it("preserves native page reloads", async () => {
+            const routerPreventedDefault = await new Promise((resolve) => {
+              navigation.addEventListener(
+                "navigate",
+                (event) => {
+                  resolve(event.defaultPrevented);
+                  event.preventDefault();
+                },
+                { once: true },
+              );
+              location.reload();
+            });
+
+            expect(routerPreventedDefault).to.be.false;
+          });
+
           it("goes to the correct route when clicking on an element", async () => {
             $("#home").click();
             await sleep(50);
