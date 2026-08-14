@@ -53,8 +53,9 @@ export class RouteOrchestrator {
         ...getParams(new URL(to, this.platform.currentHref()).search),
         ...Object.fromEntries(
           Object.entries(routeParams)
-            .filter(([key, value]) =>
-              Number.isNaN(Number(key)) && value !== undefined,
+            .filter(
+              ([key, value]) =>
+                Number.isNaN(Number(key)) && value !== undefined,
             )
             .map(([key, value]) => [key, decodeURIComponent(value!)]),
         ),
@@ -83,7 +84,7 @@ export class RouteOrchestrator {
       await route.beforeEnter?.(props);
       if (!isCurrent()) return;
 
-      if (!adopt) {
+      if (!adopt || route.restoreScroll === false) {
         await this.renderer.render(
           route,
           currentRoute,
@@ -107,11 +108,13 @@ export class RouteOrchestrator {
       }
     } finally {
       if (!isCurrent()) return;
-      this.platform.finishScroll(
-        to,
-        route.restoreScroll ?? true,
-        this.getOptions().scrollBehavior,
-      );
+      if (!adopt) {
+        this.platform.finishScroll(
+          to,
+          route.restoreScroll ?? true,
+          this.getOptions().scrollBehavior,
+        );
+      }
       this.finishRouting(routingVersion, isCurrent);
     }
   }
@@ -144,10 +147,7 @@ export class RouteOrchestrator {
     return resolved ? toRoute(resolved) : undefined;
   }
 
-  private finishRouting(
-    routingVersion: number,
-    isCurrent: () => boolean,
-  ) {
+  private finishRouting(routingVersion: number, isCurrent: () => boolean) {
     if (routingVersion === this.routingVersion && isCurrent()) {
       this.platform.dispatch("afterRouting");
     }

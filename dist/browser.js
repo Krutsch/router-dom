@@ -22,8 +22,8 @@ export function createBrowserPlatform() {
             const state = history.state;
             return state && Object.keys(state).length ? state : undefined;
         },
-        setManualScrollRestoration() {
-            history.scrollRestoration = "manual";
+        setNativeScrollRestoration() {
+            history.scrollRestoration = "auto";
         },
         saveScroll(url) {
             sessionStorage.setItem(`${storageKey}-${url}`, `${scrollX} ${scrollY}`);
@@ -39,9 +39,7 @@ export function createBrowserPlatform() {
                 scrollTo({ top, left, behavior });
                 return;
             }
-            if (!browserWindow.isHMR) {
-                scrollTo({ top: 0, left: 0, behavior });
-            }
+            scrollTo({ top: 0, left: 0, behavior });
         },
         isHMR() {
             return Boolean(browserWindow.isHMR);
@@ -70,9 +68,6 @@ export function createBrowserPlatform() {
         dispatch(name) {
             window.dispatchEvent(new Event(name));
         },
-        onBeforeUnload(listener) {
-            window.addEventListener("beforeunload", listener);
-        },
     };
 }
 const browserShells = new WeakMap();
@@ -90,9 +85,6 @@ class BrowserShell {
     registeredElements = new WeakSet();
     constructor(platform) {
         this.platform = platform;
-        platform.onBeforeUnload(() => {
-            platform.saveScroll(platform.currentUrl());
-        });
         const document = platform.document;
         document
             .querySelectorAll("form")

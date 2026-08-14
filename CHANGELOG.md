@@ -8,6 +8,9 @@
 - isolate template loading and cache requests per router instance
 - route malformed encoded parameters through `errorHandler`
 - preserve SSR adoption, nested atomic rendering, forms, prefetching, scroll restoration, and View Transitions
+- use the browser's native scroll restoration for document reloads
+- avoid overriding native scroll when adopting an SSR-rendered initial route
+- keep top resets and saved-position restoration inside the router for intercepted navigation and traversal
 
 ## 4.0.0-rc2 2026-08-13
 

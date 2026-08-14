@@ -5,7 +5,7 @@ export interface BrowserPlatform {
     currentUrl(): string;
     currentHref(): string;
     currentState(): LooseObject | undefined;
-    setManualScrollRestoration(): void;
+    setNativeScrollRestoration(): void;
     saveScroll(url: string): void;
     finishScroll(url: string, restoreScroll: boolean, behavior?: ScrollBehavior): void;
     isHMR(): boolean;
@@ -15,7 +15,6 @@ export interface BrowserPlatform {
     outlet(): Element | null;
     removeServerRouteMarker(outlet: Element): void;
     dispatch(name: string): void;
-    onBeforeUnload(listener: () => void): void;
 }
 export declare function createBrowserPlatform(): BrowserPlatform;
 export interface BrowserRouterLike {

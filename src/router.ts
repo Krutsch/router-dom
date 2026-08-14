@@ -1,9 +1,5 @@
 import { hydro } from "hydro-js";
-import {
-  compileRoutes,
-  resolveRoute,
-  type ResolvedRoute,
-} from "./routes.js";
+import { compileRoutes, resolveRoute, type ResolvedRoute } from "./routes.js";
 import { attachBrowserShell, createBrowserPlatform } from "./browser.js";
 import { setupNavigation } from "./navigation.js";
 import { RouteRegistry } from "./registry.js";
@@ -13,12 +9,7 @@ import {
   RouteRenderer,
 } from "./renderer.js";
 import { RouteOrchestrator } from "./routing.js";
-import type {
-  LooseObject,
-  Route,
-  RouteParam,
-  RouterOptions,
-} from "./types.js";
+import type { LooseObject, Route, RouteParam, RouterOptions } from "./types.js";
 
 export { compileRoutes, resolveRoute } from "./routes.js";
 export type { RouteParam } from "./types.js";
@@ -34,8 +25,7 @@ export default class Router {
   constructor(routes: [RouteParam, ...RouteParam[]], options: Options = {}) {
     this.routeRegistry = new RouteRegistry(routes, this.platform.base);
     this.options = options;
-    this.platform.setManualScrollRestoration();
-
+    this.platform.setNativeScrollRestoration();
     const initialUrl = this.platform.currentUrl();
     const initialRoute = this.routeRegistry.resolve(initialUrl);
     const initialOutlet = this.platform.outlet();

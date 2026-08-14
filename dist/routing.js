@@ -54,7 +54,7 @@ export class RouteOrchestrator {
             await route.beforeEnter?.(props);
             if (!isCurrent())
                 return;
-            if (!adopt) {
+            if (!adopt || route.restoreScroll === false) {
                 await this.renderer.render(route, currentRoute, this.platform.outlet(), isCurrent, this.getOptions().viewTransitions);
                 if (!isCurrent())
                     return;
@@ -78,7 +78,9 @@ export class RouteOrchestrator {
         finally {
             if (!isCurrent())
                 return;
-            this.platform.finishScroll(to, route.restoreScroll ?? true, this.getOptions().scrollBehavior);
+            if (!adopt) {
+                this.platform.finishScroll(to, route.restoreScroll ?? true, this.getOptions().scrollBehavior);
+            }
             this.finishRouting(routingVersion, isCurrent);
         }
     }

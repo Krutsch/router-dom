@@ -8,7 +8,7 @@ export interface BrowserPlatform {
   currentUrl(): string;
   currentHref(): string;
   currentState(): LooseObject | undefined;
-  setManualScrollRestoration(): void;
+  setNativeScrollRestoration(): void;
   saveScroll(url: string): void;
   finishScroll(
     url: string,
@@ -22,7 +22,6 @@ export interface BrowserPlatform {
   outlet(): Element | null;
   removeServerRouteMarker(outlet: Element): void;
   dispatch(name: string): void;
-  onBeforeUnload(listener: () => void): void;
 }
 
 export function createBrowserPlatform(): BrowserPlatform {
@@ -51,8 +50,8 @@ export function createBrowserPlatform(): BrowserPlatform {
       const state = history.state;
       return state && Object.keys(state).length ? state : undefined;
     },
-    setManualScrollRestoration() {
-      history.scrollRestoration = "manual";
+    setNativeScrollRestoration() {
+      history.scrollRestoration = "auto";
     },
     saveScroll(url) {
       sessionStorage.setItem(`${storageKey}-${url}`, `${scrollX} ${scrollY}`);
@@ -69,9 +68,7 @@ export function createBrowserPlatform(): BrowserPlatform {
         return;
       }
 
-      if (!browserWindow.isHMR) {
-        scrollTo({ top: 0, left: 0, behavior });
-      }
+      scrollTo({ top: 0, left: 0, behavior });
     },
     isHMR() {
       return Boolean(browserWindow.isHMR);
@@ -101,9 +98,6 @@ export function createBrowserPlatform(): BrowserPlatform {
     dispatch(name) {
       window.dispatchEvent(new Event(name));
     },
-    onBeforeUnload(listener) {
-      window.addEventListener("beforeunload", listener);
-    },
   };
 }
 
@@ -130,10 +124,6 @@ class BrowserShell {
   private readonly registeredElements = new WeakSet<Element>();
 
   constructor(private readonly platform: BrowserPlatform) {
-    platform.onBeforeUnload(() => {
-      platform.saveScroll(platform.currentUrl());
-    });
-
     const document = platform.document;
     document
       .querySelectorAll("form")
@@ -145,21 +135,22 @@ class BrowserShell {
     new MutationObserver((entries) => {
       for (const entry of entries) {
         for (const node of entry.addedNodes) {
-            const nodes = document.createNodeIterator(
-              node,
-              NodeFilter.SHOW_ELEMENT,
-              {
-                acceptNode(element: Element) {
-                  return element.localName === "form"
-                    ? NodeFilter.FILTER_ACCEPT
-                    : NodeFilter.FILTER_REJECT;
-                },
+          const nodes = document.createNodeIterator(
+            node,
+            NodeFilter.SHOW_ELEMENT,
+            {
+              acceptNode(element: Element) {
+                return element.localName === "form"
+                  ? NodeFilter.FILTER_ACCEPT
+                  : NodeFilter.FILTER_REJECT;
               },
+            },
           );
           let formOrAnchor: HTMLAnchorElement | HTMLFormElement;
           while (
             (formOrAnchor = nodes.nextNode() as
-              HTMLAnchorElement | HTMLFormElement)
+              | HTMLAnchorElement
+              | HTMLFormElement)
           ) {
             this.registerFormEvent(formOrAnchor as HTMLFormElement);
           }
