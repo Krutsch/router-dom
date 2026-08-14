@@ -57,7 +57,7 @@ or via CDN:
 The router class takes an array with at least one entry. Only the path is mandatory.<br>
 Either a template or and element will be rendered in your element with attribute `data-outlet`.<br>
 You can also specifiy one-level of children.<br> One more interesting property is the `restoreScroll`.
-The router sets `history.scrollRestoration` to `manual` and manages scroll positions for client-side history navigation.
+The router uses `history.scrollRestoration` in native `auto` mode for document reloads, then switches to `manual` before router-managed SPA pushes so history traversal has one deterministic scroll owner. Intercepted client-side navigation and history traversal are managed by the router.
 The second argument is the optional object options: it can take a general errorHandler, a formHandler, a fetchOptions for the form and the scrollBehavior. Set `viewTransitions: true` to wrap client-side route DOM commits in `document.startViewTransition()` when available. If there is a formHandler, form submits will handled via attributes on the form element and fetch.
 
 ```js

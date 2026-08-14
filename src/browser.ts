@@ -11,6 +11,7 @@ export interface BrowserPlatform {
   currentHref(): string;
   currentState(): LooseObject | undefined;
   push(path: string, state: LooseObject): void;
+  setNativeScrollRestoration(): void;
   setManualScrollRestoration(): void;
   saveScroll(url: string): void;
   finishScroll(
@@ -26,7 +27,6 @@ export interface BrowserPlatform {
   removeServerRouteMarker(outlet: Element): void;
   dispatch(name: string): void;
   onPopState(listener: (event: PopStateEvent) => void): void;
-  onBeforeUnload(listener: () => void): void;
 }
 
 export function createBrowserPlatform(): BrowserPlatform {
@@ -38,6 +38,10 @@ export function createBrowserPlatform(): BrowserPlatform {
     isHMR?: boolean;
     requestIdleCallback?: (callback: () => void) => number;
   };
+
+  window.addEventListener("pagehide", () => {
+    history.scrollRestoration = "auto";
+  });
 
   return {
     document,
@@ -54,6 +58,9 @@ export function createBrowserPlatform(): BrowserPlatform {
     },
     push(path, state) {
       history.pushState({ ...state }, "", path);
+    },
+    setNativeScrollRestoration() {
+      history.scrollRestoration = "auto";
     },
     setManualScrollRestoration() {
       history.scrollRestoration = "manual";
@@ -73,9 +80,7 @@ export function createBrowserPlatform(): BrowserPlatform {
         return;
       }
 
-      if (!browserWindow.isHMR) {
-        scrollTo({ top: 0, left: 0, behavior });
-      }
+      scrollTo({ top: 0, left: 0, behavior });
     },
     isHMR() {
       return Boolean(browserWindow.isHMR);
@@ -108,9 +113,6 @@ export function createBrowserPlatform(): BrowserPlatform {
     onPopState(listener) {
       window.addEventListener("popstate", listener);
     },
-    onBeforeUnload(listener) {
-      window.addEventListener("beforeunload", listener);
-    },
   };
 }
 
@@ -142,10 +144,6 @@ class BrowserShell {
     platform.onPopState((event) => {
       void this.router?.doRouting(platform.currentUrl(), event);
     });
-    platform.onBeforeUnload(() => {
-      platform.saveScroll(platform.currentUrl());
-    });
-
     const document = platform.document;
     document
       .querySelectorAll("a")
@@ -174,7 +172,8 @@ class BrowserShell {
           let formOrAnchor: HTMLAnchorElement | HTMLFormElement;
           while (
             (formOrAnchor = nodes.nextNode() as
-              HTMLAnchorElement | HTMLFormElement)
+              | HTMLAnchorElement
+              | HTMLFormElement)
           ) {
             if (formOrAnchor.localName === "a") {
               this.registerAnchorEvent(formOrAnchor as HTMLAnchorElement);

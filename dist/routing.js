@@ -18,12 +18,16 @@ export class RouteOrchestrator {
         this.platform.dispatch("beforeRouting");
         const from = this.oldRoute ?? to;
         const route = this.getMatchingRoute(to);
+        const isHMRUpdate = this.platform.isHMR() &&
+            event !== undefined &&
+            !(event instanceof PopStateEvent);
         if (!route) {
             this.finishRouting(routingVersion);
             return;
         }
-        if (this.oldRoute)
+        if (this.oldRoute && !isHMRUpdate) {
             this.platform.saveScroll(from);
+        }
         try {
             const routeMatch = matchResolvedRoute(route, getRoutePathname(to));
             const allParams = {
@@ -69,7 +73,9 @@ export class RouteOrchestrator {
         finally {
             if (!isCurrent())
                 return;
-            this.platform.finishScroll(to, route.restoreScroll ?? true, this.getOptions().scrollBehavior);
+            if ((!adopt || route.restoreScroll === false) && !isHMRUpdate) {
+                this.platform.finishScroll(to, route.restoreScroll ?? true, this.getOptions().scrollBehavior);
+            }
             this.finishRouting(routingVersion);
         }
     }

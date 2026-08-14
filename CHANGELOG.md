@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.3.5 2026-08-14
+
+- use the browser's native scroll restoration for document reloads
+- avoid overriding native scroll when adopting an SSR-rendered initial route
+- keep top resets and saved-position restoration inside the router for intercepted navigation and history traversal
+- switch to manual restoration only for router-managed SPA history entries, returning to native mode on page hide
+
 ## 3.3.4 2026-08-14
 
 - refactor routing into route registry, route renderer, route orchestrator, and browser adapters

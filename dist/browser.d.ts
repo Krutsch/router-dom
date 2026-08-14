@@ -6,6 +6,7 @@ export interface BrowserPlatform {
     currentHref(): string;
     currentState(): LooseObject | undefined;
     push(path: string, state: LooseObject): void;
+    setNativeScrollRestoration(): void;
     setManualScrollRestoration(): void;
     saveScroll(url: string): void;
     finishScroll(url: string, restoreScroll: boolean, behavior?: ScrollBehavior): void;
@@ -17,7 +18,6 @@ export interface BrowserPlatform {
     removeServerRouteMarker(outlet: Element): void;
     dispatch(name: string): void;
     onPopState(listener: (event: PopStateEvent) => void): void;
-    onBeforeUnload(listener: () => void): void;
 }
 export declare function createBrowserPlatform(): BrowserPlatform;
 export interface BrowserRouterLike {

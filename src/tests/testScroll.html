@@ -21,7 +21,7 @@
         let router;
 
         describe("router", () => {
-          it("uses manual history scroll restoration", async () => {
+          it("uses native history scroll restoration for reloads", async () => {
             router = new Router(
               [
                 {
@@ -36,11 +36,12 @@
               { viewTransitions: true },
             );
 
-            expect(history.scrollRestoration).to.equal("manual");
+            expect(history.scrollRestoration).to.equal("auto");
 
             let routing = waitForRouting();
             router.go("/scroll-a");
             await routing;
+            expect(history.scrollRestoration).to.equal("manual");
 
             window.scrollTo(0, 500);
             routing = waitForRouting();
@@ -59,10 +60,10 @@
             expect(window.scrollY).to.equal(0);
           });
 
-          it("restores the scroll height", async () => {
+          it("does not override adopted native scroll restoration", async () => {
             router = new Router([
               {
-                path: "/",
+                path: "/initial-scroll",
                 element: `<div>
                   <div style="height: 2000px;">A</div>
                   <div>B</div>
@@ -70,46 +71,35 @@
               },
             ]);
 
-            router.go("/");
+            router.go("/initial-scroll");
             await sleep(50);
 
-            window.scrollTo(0, document.body.scrollHeight);
-
-            // Simulate reload
-            window.dispatchEvent(new Event("beforeunload"));
-            router.oldRoute = null;
-            window.scrollTo(0, 0);
-
-            window.dispatchEvent(new Event("popstate"));
-            await sleep(50);
-            expect(window.scrollY).not.to.equal(0);
+            window.scrollTo(0, 500);
+            await router.doRouting("/initial-scroll", undefined, true);
+            expect(window.scrollY).to.equal(500);
           });
 
-          it("does not restore the scroll height", async () => {
+          it("resets new routes during HMR", async () => {
+            window.isHMR = true;
             router = new Router([
               {
-                path: "/",
-                element: `<div>
-                  <div style="height: 2000px;">A</div>
-                  <div>B</div>
-                </div>`,
-                restoreScroll: false,
+                path: "/hmr-scroll-a",
+                element: `<div style="height: 2000px;">A</div>`,
+              },
+              {
+                path: "/hmr-scroll-b",
+                element: `<div style="height: 2000px;">B</div>`,
               },
             ]);
 
-            router.go("/");
+            router.go("/hmr-scroll-a");
             await sleep(50);
 
-            window.scrollTo(0, document.body.scrollHeight);
-
-            // Simulate reload
-            window.dispatchEvent(new Event("beforeunload"));
-            router.oldRoute = null;
-            window.scrollTo(0, 0);
-
-            window.dispatchEvent(new Event("popstate"));
+            window.scrollTo(0, 500);
+            router.go("/hmr-scroll-b");
             await sleep(50);
             expect(window.scrollY).to.equal(0);
+            delete window.isHMR;
           });
 
           it("sets scroll to 0 when navigating to another route", async () => {

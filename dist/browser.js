@@ -7,6 +7,9 @@ export function createBrowserPlatform() {
     if (base.endsWith("/"))
         base = [...base].slice(0, -1).join("");
     const browserWindow = window;
+    window.addEventListener("pagehide", () => {
+        history.scrollRestoration = "auto";
+    });
     return {
         document,
         base,
@@ -22,6 +25,9 @@ export function createBrowserPlatform() {
         },
         push(path, state) {
             history.pushState({ ...state }, "", path);
+        },
+        setNativeScrollRestoration() {
+            history.scrollRestoration = "auto";
         },
         setManualScrollRestoration() {
             history.scrollRestoration = "manual";
@@ -40,9 +46,7 @@ export function createBrowserPlatform() {
                 scrollTo({ top, left, behavior });
                 return;
             }
-            if (!browserWindow.isHMR) {
-                scrollTo({ top: 0, left: 0, behavior });
-            }
+            scrollTo({ top: 0, left: 0, behavior });
         },
         isHMR() {
             return Boolean(browserWindow.isHMR);
@@ -74,9 +78,6 @@ export function createBrowserPlatform() {
         onPopState(listener) {
             window.addEventListener("popstate", listener);
         },
-        onBeforeUnload(listener) {
-            window.addEventListener("beforeunload", listener);
-        },
     };
 }
 const browserShells = new WeakMap();
@@ -96,9 +97,6 @@ class BrowserShell {
         this.platform = platform;
         platform.onPopState((event) => {
             void this.router?.doRouting(platform.currentUrl(), event);
-        });
-        platform.onBeforeUnload(() => {
-            platform.saveScroll(platform.currentUrl());
         });
         const document = platform.document;
         document

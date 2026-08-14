@@ -11,7 +11,7 @@ export default class Router {
     constructor(routes, options = {}) {
         this.routeRegistry = new RouteRegistry(routes, this.platform.base);
         this.options = options;
-        this.platform.setManualScrollRestoration();
+        this.platform.setNativeScrollRestoration();
         const initialUrl = this.platform.currentUrl();
         const initialRoute = this.routeRegistry.resolve(initialUrl);
         const initialOutlet = this.platform.outlet();
@@ -48,6 +48,7 @@ export default class Router {
     go(path, state = {}, params = "") {
         const newPath = this.platform.base + path + params;
         if (newPath !== this.platform.currentUrl()) {
+            this.platform.setManualScrollRestoration();
             this.platform.push(newPath, state);
             void this.doRouting(newPath);
         }
