@@ -10,7 +10,7 @@ export interface RoutePatternResult {
   };
 }
 
-interface URLPatternConstructor {
+export interface RoutePatternConstructor {
   new (input: { pathname: string }): RoutePattern;
 }
 
@@ -18,6 +18,8 @@ export interface RouteDefinition {
   path: string;
   children?: RouteDefinition[];
 }
+
+export type RouteMatcherFactory = (pathname: string) => RoutePattern;
 
 export interface ResolvedRoute<T extends RouteDefinition = RouteDefinition> {
   route: T;
@@ -29,8 +31,11 @@ export interface ResolvedRoute<T extends RouteDefinition = RouteDefinition> {
 export function compileRoutes<T extends RouteDefinition>(
   routes: readonly T[],
   base = "",
+  matcherFactory: RouteMatcherFactory = createURLPatternMatcher,
 ): ResolvedRoute<T>[] {
-  return routes.flatMap((route) => compileRoute(route, [], base));
+  return routes.flatMap((route) =>
+    compileRoute(route, [], base, matcherFactory),
+  );
 }
 
 export function resolveRoute<T extends RouteDefinition>(
@@ -39,6 +44,25 @@ export function resolveRoute<T extends RouteDefinition>(
 ): ResolvedRoute<T> | undefined {
   const pathname = getRoutePathname(url);
   return routes.find((route) => route.path.exec({ pathname }));
+}
+
+export function matchResolvedRoute<T extends RouteDefinition>(
+  route: ResolvedRoute<T>,
+  pathname: string,
+) {
+  return route.path.exec({ pathname }) ?? undefined;
+}
+
+export function createURLPatternMatcher(pathname: string): RoutePattern {
+  const URLPatternConstructor = (
+    globalThis as typeof globalThis & {
+      URLPattern?: RoutePatternConstructor;
+    }
+  ).URLPattern;
+  if (!URLPatternConstructor) {
+    throw new Error("router-dom requires URLPattern");
+  }
+  return new URLPatternConstructor({ pathname });
 }
 
 export function getRoutePathname(url: string): string {
@@ -55,37 +79,31 @@ function compileRoute<T extends RouteDefinition>(
   route: T,
   parents: T[],
   parentPath: string,
+  matcherFactory: RouteMatcherFactory,
 ): ResolvedRoute<T>[] {
   const pathname = parents.length
     ? joinRoutePaths(parentPath, route.path)
     : normalizeSlashes(`${parentPath}${route.path}`);
   const chain = [...parents, route];
   const children = (route.children ?? []) as T[];
+  const normalizedPathname = normalizeRoutePath(pathname);
+  const resolved = {
+    route,
+    chain,
+    path: matcherFactory(normalizedPathname),
+    pathname: normalizedPathname,
+  };
+
   return [
-    ...children.flatMap((child) => compileRoute(child, chain, pathname)),
-    {
-      route,
-      chain,
-      path: createRoutePattern(normalizeRoutePath(pathname)),
-      pathname: normalizeRoutePath(pathname),
-    },
+    ...children.flatMap((child) =>
+      compileRoute(child, chain, pathname, matcherFactory),
+    ),
+    resolved,
   ];
 }
 
 function normalizeRoutePath(path: string): string {
   return path.replace(legacyQueryRegex, "");
-}
-
-function createRoutePattern(pathname: string): RoutePattern {
-  const URLPatternConstructor = (
-    globalThis as typeof globalThis & {
-      URLPattern?: URLPatternConstructor;
-    }
-  ).URLPattern;
-  if (!URLPatternConstructor) {
-    throw new Error("router-dom requires URLPattern");
-  }
-  return new URLPatternConstructor({ pathname });
 }
 
 function normalizeSlashes(path: string): string {

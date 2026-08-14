@@ -108,7 +108,7 @@
             expectIgnored($("#download"));
           });
 
-          it("preserves native page reloads", async () => {
+           it("preserves native page reloads", async () => {
             const routerPreventedDefault = await new Promise((resolve) => {
               navigation.addEventListener(
                 "navigate",
@@ -121,8 +121,17 @@
               location.reload();
             });
 
-            expect(routerPreventedDefault).to.be.false;
-          });
+             expect(routerPreventedDefault).to.be.false;
+           });
+
+           it("passes navigation entry state to lifecycle hooks", async () => {
+             router.go("/a", { fromNavigationEntry: true });
+             await sleep(50);
+
+             expect(window.beforeEnterA.state).to.deep.equal({
+               fromNavigationEntry: true,
+             });
+           });
 
           it("goes to the correct route when clicking on an element", async () => {
             $("#home").click();
@@ -355,7 +364,8 @@
 
           it("calls the lifecycle hooks when navigating via browser API", async () => {
             const props = { from: "/", to: "/b/4", params: { id: "4" } };
-            history.back();
+             const result = navigation.back();
+             void result.finished?.catch(() => {});
             await sleep(50);
 
             expect(window.leaveHome).to.deep.equal(props);

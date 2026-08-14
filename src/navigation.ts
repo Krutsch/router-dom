@@ -8,8 +8,7 @@ export interface NavigationCallbacks {
   getAnchorState(anchor: HTMLAnchorElement): unknown;
 }
 
-let callbacks: NavigationCallbacks;
-let installedNavigation: Navigation | undefined;
+const installedNavigations = new WeakMap<Navigation, NavigationCallbacks>();
 
 export function setupNavigation(nextCallbacks: NavigationCallbacks): Navigation {
   const navigationApi = window.navigation;
@@ -22,12 +21,14 @@ export function setupNavigation(nextCallbacks: NavigationCallbacks): Navigation 
     throw new Error("router-dom requires the Navigation API");
   }
 
-  callbacks = nextCallbacks;
-  if (installedNavigation === navigationApi) return navigationApi;
+  if (installedNavigations.has(navigationApi)) {
+    installedNavigations.set(navigationApi, nextCallbacks);
+    return navigationApi;
+  }
 
+  installedNavigations.set(navigationApi, nextCallbacks);
   navigationApi.addEventListener("navigate", handleNavigate);
   document.addEventListener("click", handleAnchorClick);
-  installedNavigation = navigationApi;
   return navigationApi;
 }
 
@@ -43,7 +44,8 @@ function handleNavigate(event: NavigateEvent) {
   }
 
   const destination = new URL(event.destination.url);
-  const currentCallbacks = callbacks;
+  const currentCallbacks = installedNavigations.get(window.navigation!);
+  if (!currentCallbacks) return;
   if (
     destination.origin !== location.origin ||
     !["http:", "https:"].includes(destination.protocol)
@@ -95,6 +97,9 @@ function handleAnchorClick(event: MouseEvent) {
   const anchor = getAnchor(event.target);
   if (!anchor) return;
 
+  const currentCallbacks = installedNavigations.get(window.navigation!);
+  if (!currentCallbacks) return;
+
   const href = anchor.getAttribute("href");
   const target = anchor.getAttribute("target");
   if (
@@ -116,7 +121,7 @@ function handleAnchorClick(event: MouseEvent) {
     return;
   }
 
-  const navigationUrl = getNavigationUrl(destination, callbacks.base);
+  const navigationUrl = getNavigationUrl(destination, currentCallbacks.base);
   if (navigationUrl === location.href) {
     event.preventDefault();
     return;
@@ -125,17 +130,20 @@ function handleAnchorClick(event: MouseEvent) {
   event.preventDefault();
   void navigationNavigate(
     navigationUrl,
-    callbacks.getAnchorState(anchor),
-  );
+    currentCallbacks.getAnchorState(anchor),
+  ).catch(() => {});
 }
 
 function navigationNavigate(url: string, state: unknown) {
-  const navigationApi = installedNavigation;
+  const navigationApi = window.navigation;
   if (!navigationApi) return Promise.resolve();
-  return (
-    navigationApi.navigate(url, { state: cloneState(state) }).finished?.catch(() => {}) ??
-    Promise.resolve()
-  );
+  try {
+    const result = navigationApi.navigate(url, { state: cloneState(state) });
+    void result.committed?.catch(() => {});
+    return result.finished?.catch(() => {}) ?? Promise.resolve();
+  } catch {
+    return Promise.resolve();
+  }
 }
 
 function getNavigationUrl(destination: URL, basePath: string) {

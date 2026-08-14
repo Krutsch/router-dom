@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.0.0-rc3 2026-08-14
+
+- keep Navigation API routing and native URLPattern matching while moving lifecycle, rendering, browser, and route-registry behavior behind focused modules
+- preserve navigation-entry state and cancellation signals through lifecycle routing
+- make `router.routes` a frozen inspection snapshot; use `addRoute`, `removeRoute`, and `modifyRoute` for mutations
+- isolate template loading and cache requests per router instance
+- route malformed encoded parameters through `errorHandler`
+- preserve SSR adoption, nested atomic rendering, forms, prefetching, scroll restoration, and View Transitions
+
 ## 4.0.0-rc2 2026-08-13
 
 - preserve native page reloads when using the Navigation API
@@ -13,6 +22,17 @@
 - migrate client-side routing from the History API to the browser Navigation API
 - replace path-to-regexp with native URLPattern route matching
 - preserve lifecycle hooks, nested routes, forms, prefetching, scroll restoration, SSR adoption, and View Transitions
+
+## 3.3.4 2026-08-14
+
+- refactor routing into route registry, route renderer, route orchestrator, and browser adapters
+- preserve `RegExp` shape on resolved route paths while isolating matcher implementation
+- make `router.routes` a frozen inspection snapshot; use `addRoute`, `removeRoute`, and `modifyRoute` for mutations (**breaking for direct array mutation**)
+- isolate template loading and cache requests per router instance
+- route malformed encoded parameters through `errorHandler`
+- normalize legacy optional trailing slash paths such as `{/}?`
+- normalize legacy unnamed wildcard paths such as `/*`
+- browser shell supports one active Router per document; multiple Router instances in one document remain unsupported
 
 ## 3.3.3 2026-08-12
 

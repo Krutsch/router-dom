@@ -49,12 +49,14 @@
             expect(window.scrollY).to.equal(0);
 
             routing = waitForRouting();
-            history.back();
+             const back = navigation.back();
+             void back.finished?.catch(() => {});
             await routing;
             expect(window.scrollY).to.equal(500);
 
             routing = waitForRouting();
-            history.forward();
+             const forward = navigation.forward();
+             void forward.finished?.catch(() => {});
             await routing;
             expect(window.scrollY).to.equal(0);
           });
@@ -171,7 +173,8 @@
             await sleep(50);
             expect(window.scrollY).to.equal(0);
 
-            history.back();
+             const back = navigation.back();
+             void back.finished?.catch(() => {});
             await sleep(50);
 
             expect(window.scrollY).to.equal(500);

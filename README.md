@@ -72,7 +72,7 @@ available to lifecycle hooks as `state`. It can also be read with
 The router class takes an array with at least one entry. Only the path is mandatory.<br>
 Either a template or and element will be rendered in your element with attribute `data-outlet`.<br>
 You can also specifiy one-level of children.<br> One more interesting property is the `restoreScroll`.
-The router sets `history.scrollRestoration` to `manual` and manages scroll positions for client-side history navigation.
+The router sets `history.scrollRestoration` to `manual` and manages scroll positions for client-side navigation and traversal.
 The second argument is the optional object options: it can take a general errorHandler, a formHandler, a fetchOptions for the form and the scrollBehavior. Set `viewTransitions: true` to wrap client-side route DOM commits in `document.startViewTransition()` when available. If there is a formHandler, form submits will handled via attributes on the form element and fetch.
 
 ```js
@@ -111,15 +111,17 @@ When the marker matches a configured route, the constructor adopts the existing 
 
 ### removeRoute
 
-- Removes a route from the routes array.
+- Removes a route from the route registry.
 
 ### addRoute
 
-- Adds a route object to the routes array.
+- Adds a route object to the route registry.
 
 ### modifyRoute
 
-- Replaces a route with a new one.
+- Replaces a route with a new one in the route registry.
+
+`router.routes` returns a frozen snapshot for inspection. Use `addRoute`, `removeRoute`, and `modifyRoute` for mutations. Only one `Router` instance should own browser navigation per document.
 
 ### changeOptions
 
