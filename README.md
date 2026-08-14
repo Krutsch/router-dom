@@ -96,15 +96,17 @@ When the marker matches a configured route, the constructor adopts the existing 
 
 ### removeRoute
 
-- Removes a route from the routes array.
+- Removes a route from the route registry.
 
 ### addRoute
 
-- Adds a route object to the routes array.
+- Adds a route object to the route registry.
 
 ### modifyRoute
 
-- Replaces a route with a new one.
+- Replaces a route with a new one in the route registry.
+
+`router.routes` returns a frozen snapshot for inspection. Use `addRoute`, `removeRoute`, and `modifyRoute` for mutations. Only one `Router` instance should own browser navigation per document.
 
 ### changeOptions
 

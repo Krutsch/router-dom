@@ -39,6 +39,48 @@
             ]);
           });
 
+          it("supports legacy optional trailing slash syntax", () => {
+            const routes = compileRoutes([{ path: "/legacy{/}?" }]);
+
+            expect(resolveRoute(routes, "/legacy")).to.not.equal(undefined);
+            expect(resolveRoute(routes, "/legacy/")).to.not.equal(undefined);
+          });
+
+          it("supports legacy unnamed wildcard syntax", () => {
+            const routes = compileRoutes([{ path: "/*" }]);
+
+            expect(resolveRoute(routes, "/missing/page")).to.not.equal(
+              undefined,
+            );
+          });
+
+          it("keeps route snapshots isolated and matcher-compatible", () => {
+            const path = location.pathname;
+            const router = new Router([{ path }]);
+            const snapshot = router.routes;
+
+            expect(snapshot[0].path).to.be.instanceOf(RegExp);
+            expect(Object.isFrozen(snapshot)).to.equal(true);
+            expect(Object.isFrozen(snapshot[0])).to.equal(true);
+            expect(Object.isFrozen(snapshot[0].chain)).to.equal(true);
+
+            router.addRoute({ path: `${path}/snapshot` });
+
+            expect(snapshot).to.have.length(1);
+            expect(router.routes).to.have.length(2);
+          });
+
+          it("reports malformed encoded parameters through errorHandler", async () => {
+            let routeError;
+            const router = new Router([{ path: "/:id" }], {
+              errorHandler: (error) => (routeError = error),
+            });
+
+            await router.doRouting("/%E0%A4%A");
+
+            expect(routeError).to.be.instanceOf(URIError);
+          });
+
           it("adopts matching markup and routes later navigation normally", async () => {
             const outlet = document.querySelector("[data-outlet]");
             const serverNode = outlet.firstElementChild;

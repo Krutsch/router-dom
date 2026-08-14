@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.3.4 2026-08-14
+
+- refactor routing into route registry, route renderer, route orchestrator, and browser adapters
+- preserve `RegExp` shape on resolved route paths while isolating matcher implementation
+- make `router.routes` a frozen inspection snapshot; use `addRoute`, `removeRoute`, and `modifyRoute` for mutations (**breaking for direct array mutation**)
+- isolate template loading and cache requests per router instance
+- route malformed encoded parameters through `errorHandler`
+- normalize legacy optional trailing slash paths such as `{/}?`
+- normalize legacy unnamed wildcard paths such as `/*`
+- browser shell supports one active Router per document; multiple Router instances in one document remain unsupported
+
 ## 3.3.3 2026-08-12
 
 - correct the hydro-js peer dependency metadata
