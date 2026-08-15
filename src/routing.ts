@@ -30,6 +30,7 @@ export class RouteOrchestrator {
     to = this.platform.currentUrl(),
     event?: PopStateEvent,
     adopt = false,
+    preserveScroll = false,
   ) {
     const routingVersion = ++this.routingVersion;
     const isCurrent = () => routingVersion === this.routingVersion;
@@ -43,10 +44,6 @@ export class RouteOrchestrator {
     if (!route) {
       this.finishRouting(routingVersion);
       return;
-    }
-
-    if (this.oldRoute && !isHMRUpdate) {
-      this.platform.saveScroll(from);
     }
 
     try {
@@ -100,10 +97,12 @@ export class RouteOrchestrator {
       }
     } finally {
       if (!isCurrent()) return;
-      if ((!adopt || route.restoreScroll === false) && !isHMRUpdate) {
+      if (preserveScroll) {
+        this.platform.restoreInitialScroll();
+      } else if (!adopt && !isHMRUpdate) {
         this.platform.finishScroll(
-          to,
           route.restoreScroll ?? true,
+          event instanceof PopStateEvent,
           this.getOptions().scrollBehavior,
         );
       }

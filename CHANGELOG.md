@@ -1,11 +1,22 @@
 # Changelog
 
+## 3.3.6 2026-08-15
+
+- key saved scroll positions per history entry instead of per url, so a new visit of an already seen url starts on top while back/forward restores the position of that entry
+- stamp history entries with an internal `__routerScroll` key (`history.state`); it is stripped from the `state` passed to route hooks
+- restore reloads through the browser's native restoration and only correct late-rendered content afterwards, removing the scroll flash on SSR and view-transition apps
+- keep restoring while the target route is still growing, abort on user scroll intent and stop after 3s instead of observing the DOM for 10s
+- restore traversal positions instantly, `scrollBehavior` now only applies to the top reset of new navigations
+- leave BFCache restoration to the browser and share one scroll owner per document
+
 ## 3.3.5 2026-08-14
 
 - use the browser's native scroll restoration for document reloads
 - avoid overriding native scroll when adopting an SSR-rendered initial route
 - keep top resets and saved-position restoration inside the router for intercepted navigation and history traversal
 - switch to manual restoration only for router-managed SPA history entries, returning to native mode on page hide
+- preserve initial-load scroll and BFCache restoration ownership
+- tolerate unavailable session storage and clean disabled-route scroll entries
 
 ## 3.3.4 2026-08-14
 

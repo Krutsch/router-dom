@@ -57,7 +57,7 @@ export default class Router {
       initialRoute,
       adoptsInitialRoute,
     );
-    void this.doRouting(initialUrl, undefined, adoptsInitialRoute);
+    void this.doRouting(initialUrl, undefined, adoptsInitialRoute, true);
     if (
       adoptsInitialRoute ||
       initialRoute?.chain.every((segment) => !segment.templateUrl)
@@ -86,8 +86,9 @@ export default class Router {
     to = this.platform.currentUrl(),
     event?: PopStateEvent,
     adopt = false,
+    preserveScroll = false,
   ) {
-    return this.orchestrator.doRouting(to, event, adopt);
+    return this.orchestrator.doRouting(to, event, adopt, preserveScroll);
   }
 
   go(path: string, state: LooseObject = {}, params = "") {

@@ -26,7 +26,7 @@ export default class Router {
         this.orchestrator = new RouteOrchestrator(this.routeRegistry, renderer, this.platform, () => this.options);
         attachBrowserShell(this, this.platform);
         this.orchestrator.prefetch(this.routeRegistry.routes, initialRoute, adoptsInitialRoute);
-        void this.doRouting(initialUrl, undefined, adoptsInitialRoute);
+        void this.doRouting(initialUrl, undefined, adoptsInitialRoute, true);
         if (adoptsInitialRoute ||
             initialRoute?.chain.every((segment) => !segment.templateUrl)) {
             this.orchestrator.oldRoute = initialUrl;
@@ -42,8 +42,8 @@ export default class Router {
     set oldRoute(value) {
         this.orchestrator.oldRoute = value ?? undefined;
     }
-    doRouting(to = this.platform.currentUrl(), event, adopt = false) {
-        return this.orchestrator.doRouting(to, event, adopt);
+    doRouting(to = this.platform.currentUrl(), event, adopt = false, preserveScroll = false) {
+        return this.orchestrator.doRouting(to, event, adopt, preserveScroll);
     }
     go(path, state = {}, params = "") {
         const newPath = this.platform.base + path + params;

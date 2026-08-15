@@ -11,7 +11,7 @@ export declare class RouteOrchestrator {
     oldRoute: undefined | string;
     private routingVersion;
     constructor(registry: RouteRegistry<RouteParam>, renderer: RouteRenderer, platform: BrowserPlatform, getOptions: () => RouterOptions);
-    doRouting(to?: string, event?: PopStateEvent, adopt?: boolean): Promise<void>;
+    doRouting(to?: string, event?: PopStateEvent, adopt?: boolean, preserveScroll?: boolean): Promise<void>;
     prefetch(routes: readonly ResolvedRoute<RouteParam>[], initialRoute: ResolvedRoute<RouteParam> | undefined, adoptsInitialRoute: boolean): void;
     private getMatchingRoute;
     private finishRouting;

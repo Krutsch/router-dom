@@ -1,5 +1,16 @@
 import { hydro } from "hydro-js";
 const storageKey = "router-scroll";
+const scrollStateKey = "__routerScroll";
+const maxStoredEntries = 50;
+const maxScrollRestoreDuration = 3_000;
+const scrollRestoreInterval = 32;
+const interruptEvents = [
+    "wheel",
+    "touchstart",
+    "keydown",
+    "pointerdown",
+];
+const interruptOptions = { capture: true, passive: true };
 const reactivityRegex = /\{\{([^]*?)\}\}/;
 export function createBrowserPlatform() {
     const document = window.document;
@@ -7,9 +18,7 @@ export function createBrowserPlatform() {
     if (base.endsWith("/"))
         base = [...base].slice(0, -1).join("");
     const browserWindow = window;
-    window.addEventListener("pagehide", () => {
-        history.scrollRestoration = "auto";
-    });
+    const scroll = getScrollManager();
     return {
         document,
         base,
@@ -21,10 +30,18 @@ export function createBrowserPlatform() {
         },
         currentState() {
             const state = history.state;
-            return state && Object.keys(state).length ? state : undefined;
+            if (!state)
+                return undefined;
+            const { [scrollStateKey]: _scrollKey, ...rest } = state;
+            return Object.keys(rest).length ? rest : undefined;
         },
         push(path, state) {
-            history.pushState({ ...state }, "", path);
+            scroll.save();
+            scroll.cancel();
+            scroll.flush();
+            const entryKey = createScrollKey();
+            history.pushState({ ...state, [scrollStateKey]: entryKey }, "", path);
+            scroll.adoptKey(entryKey);
         },
         setNativeScrollRestoration() {
             history.scrollRestoration = "auto";
@@ -32,21 +49,24 @@ export function createBrowserPlatform() {
         setManualScrollRestoration() {
             history.scrollRestoration = "manual";
         },
-        saveScroll(url) {
-            sessionStorage.setItem(`${storageKey}-${url}`, `${scrollX} ${scrollY}`);
-        },
-        finishScroll(url, restoreScroll, behavior = "auto") {
-            const routeStorageKey = `${storageKey}-${url}`;
-            const stored = restoreScroll
-                ? sessionStorage.getItem(routeStorageKey)
-                : null;
-            if (stored) {
-                const [left, top] = stored.split(" ").map(Number);
-                sessionStorage.removeItem(routeStorageKey);
-                scrollTo({ top, left, behavior });
+        finishScroll(restoreScroll, isTraversal, behavior = "auto") {
+            scroll.cancel();
+            const stored = restoreScroll ? scroll.position() : undefined;
+            if (!restoreScroll)
+                scroll.forget();
+            // Only history traversal restores a position; a fresh entry starts on top.
+            if (isTraversal && stored && (stored[0] || stored[1])) {
+                scroll.restore(stored);
                 return;
             }
-            scrollTo({ top: 0, left: 0, behavior });
+            scrollTo({ top: 0, left: 0, behavior: isTraversal ? "auto" : behavior });
+        },
+        restoreInitialScroll() {
+            scroll.cancel();
+            const stored = scroll.takeInitialPosition();
+            // Native restoration already ran; this only corrects late-rendered content.
+            if (stored && (stored[0] || stored[1]))
+                scroll.restore(stored);
         },
         isHMR() {
             return Boolean(browserWindow.isHMR);
@@ -76,7 +96,182 @@ export function createBrowserPlatform() {
             window.dispatchEvent(new Event(name));
         },
         onPopState(listener) {
-            window.addEventListener("popstate", listener);
+            window.addEventListener("popstate", (event) => {
+                scroll.syncFromHistory();
+                listener(event);
+            });
+        },
+    };
+}
+function createScrollKey() {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+let scrollManager;
+// One owner per document, so re-created routers keep the same history bookkeeping.
+function getScrollManager() {
+    return (scrollManager ??= createScrollManager());
+}
+function readEntryKey() {
+    const state = history.state;
+    const key = state?.[scrollStateKey];
+    if (typeof key === "string")
+        return key;
+    const created = createScrollKey();
+    try {
+        history.replaceState({ ...state, [scrollStateKey]: created }, "");
+    }
+    catch {
+        // A rejected replaceState only costs restoration across reloads.
+    }
+    return created;
+}
+function createScrollManager() {
+    const positions = new Map();
+    try {
+        const raw = sessionStorage.getItem(storageKey);
+        for (const [key, position] of Object.entries((raw ? JSON.parse(raw) : {}))) {
+            if (Array.isArray(position)) {
+                positions.set(key, [
+                    Number(position[0]) || 0,
+                    Number(position[1]) || 0,
+                ]);
+            }
+        }
+    }
+    catch {
+        // Storage may be unavailable, disabled or corrupted.
+    }
+    let currentKey = readEntryKey();
+    // Snapshot before any load-time scroll event can overwrite the reload target.
+    let initialPosition = positions.get(currentKey);
+    let persistTimer;
+    let restoreVersion = 0;
+    let restoring = false;
+    let stopRestore = (_recordFinal) => { };
+    const flush = () => {
+        if (persistTimer !== undefined) {
+            window.clearTimeout(persistTimer);
+            persistTimer = undefined;
+        }
+        try {
+            for (const key of positions.keys()) {
+                if (positions.size <= maxStoredEntries)
+                    break;
+                positions.delete(key);
+            }
+            sessionStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(positions)));
+        }
+        catch {
+            // Scroll persistence must never block navigation.
+        }
+    };
+    const schedulePersist = () => {
+        if (persistTimer !== undefined)
+            return;
+        persistTimer = window.setTimeout(() => {
+            persistTimer = undefined;
+            flush();
+        }, 200);
+    };
+    const record = () => {
+        positions.delete(currentKey);
+        positions.set(currentKey, [scrollX, scrollY]);
+        schedulePersist();
+    };
+    const cancel = () => {
+        restoreVersion += 1;
+        stopRestore(false);
+    };
+    const restore = ([left, top]) => {
+        cancel();
+        const version = restoreVersion;
+        const deadline = performance.now() + maxScrollRestoreDuration;
+        let timer;
+        const stop = (recordFinal) => {
+            if (timer !== undefined)
+                window.clearTimeout(timer);
+            timer = undefined;
+            for (const name of interruptEvents) {
+                window.removeEventListener(name, interrupt, interruptOptions);
+            }
+            if (stopRestore !== stop)
+                return;
+            stopRestore = () => { };
+            restoring = false;
+            if (recordFinal)
+                record();
+        };
+        const interrupt = () => stop(true);
+        const step = () => {
+            timer = undefined;
+            if (version !== restoreVersion)
+                return;
+            scrollTo({ top, left, behavior: "auto" });
+            const reached = Math.abs(scrollY - top) <= 1 && Math.abs(scrollX - left) <= 1;
+            if (reached || performance.now() >= deadline) {
+                stop(true);
+                return;
+            }
+            // Content may still be growing, so keep correcting until it fits.
+            timer = window.setTimeout(step, scrollRestoreInterval);
+        };
+        restoring = true;
+        stopRestore = stop;
+        for (const name of interruptEvents) {
+            window.addEventListener(name, interrupt, interruptOptions);
+        }
+        step();
+    };
+    window.addEventListener("scroll", () => {
+        if (!restoring)
+            record();
+    }, { passive: true });
+    window.addEventListener("pagehide", (event) => {
+        if (!restoring)
+            record();
+        cancel();
+        flush();
+        // Hand scroll ownership back so a reload is restored natively, before paint.
+        if (!event.persisted)
+            history.scrollRestoration = "auto";
+    });
+    window.addEventListener("pageshow", (event) => {
+        if (!event.persisted)
+            return;
+        // The BFCache already restored DOM and scroll: only re-sync the entry.
+        cancel();
+        currentKey = readEntryKey();
+        history.scrollRestoration = "manual";
+    });
+    return {
+        // Skipped while restoring: the in-flight target is the value worth keeping.
+        save: () => {
+            if (!restoring)
+                record();
+        },
+        flush,
+        cancel,
+        restore,
+        position: () => positions.get(currentKey),
+        // Consumed once: a router re-created later must not re-apply the load position.
+        takeInitialPosition: () => {
+            const position = initialPosition;
+            initialPosition = undefined;
+            return position;
+        },
+        forget: () => {
+            positions.delete(currentKey);
+            schedulePersist();
+        },
+        adoptKey: (key) => {
+            currentKey = key;
+        },
+        syncFromHistory: () => {
+            if (!restoring)
+                record();
+            cancel();
+            flush();
+            currentKey = readEntryKey();
         },
     };
 }

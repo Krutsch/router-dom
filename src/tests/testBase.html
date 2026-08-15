@@ -18,6 +18,10 @@
       }
       const sleep = (time) =>
         new Promise((resolve) => setTimeout(resolve, time));
+      const publicState = () => {
+        const { __routerScroll, ...state } = history.state ?? {};
+        return state;
+      };
 
       runTests(() => {
         describe("router", () => {
@@ -128,13 +132,13 @@
           it("sends data via API", () => {
             const data = { awesome: 42 };
             router.go("/a", data);
-            expect(history.state).to.deep.equal(data);
+            expect(publicState()).to.deep.equal(data);
           });
 
           it("sends data via element", () => {
             hydro.data = { awesome: 42 };
             $("#data").click();
-            expect(history.state).to.deep.equal(hydro.data);
+            expect(publicState()).to.deep.equal(hydro.data);
           });
 
           it("renders into data-outlet", async () => {

@@ -57,7 +57,7 @@ or via CDN:
 The router class takes an array with at least one entry. Only the path is mandatory.<br>
 Either a template or and element will be rendered in your element with attribute `data-outlet`.<br>
 You can also specifiy one-level of children.<br> One more interesting property is the `restoreScroll`.
-The router uses `history.scrollRestoration` in native `auto` mode for document reloads, then switches to `manual` before router-managed SPA pushes so history traversal has one deterministic scroll owner. Intercepted client-side navigation and history traversal are managed by the router.
+Scroll positions are stored per history entry, like the browser does natively: every entry gets an internal `__routerScroll` key inside `history.state`, and its position is persisted in `sessionStorage` under `router-scroll`. New navigations always start on top, history traversal (back/forward) restores the position of that entry, and reloads are restored by the browser itself (`history.scrollRestoration` is handed back to `auto` on `pagehide`), so SSR pages do not flash. BFCache restores stay untouched. Restoration keeps correcting while late-rendered content grows and aborts as soon as the user scrolls. No consumer setup is required; `scrollBehavior` only applies to the top reset of new navigations.
 The second argument is the optional object options: it can take a general errorHandler, a formHandler, a fetchOptions for the form and the scrollBehavior. Set `viewTransitions: true` to wrap client-side route DOM commits in `document.startViewTransition()` when available. If there is a formHandler, form submits will handled via attributes on the form element and fetch.
 
 ```js
