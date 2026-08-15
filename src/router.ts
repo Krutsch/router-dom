@@ -76,6 +76,8 @@ export default class Router {
       undefined,
       adoptsInitialRoute,
       this.navigation.currentEntry?.getState(),
+      undefined,
+      true,
     );
     if (
       adoptsInitialRoute ||
@@ -107,18 +109,32 @@ export default class Router {
     adopt = false,
     state?: unknown,
     signal?: AbortSignal,
+    preserveScroll = false,
   ) {
-    return this.orchestrator.doRouting(to, event, adopt, state, signal);
+    return this.orchestrator.doRouting(
+      to,
+      event,
+      adopt,
+      state,
+      signal,
+      preserveScroll,
+    );
   }
 
   go(path: string, state: LooseObject = {}, params = "") {
     const newPath = this.platform.base + path + params;
 
     if (newPath !== this.platform.currentUrl()) {
-      void this.navigation
-        .navigate(newPath, { state: { ...state } })
-        .finished?.catch(() => {})
-        .catch(() => {});
+      try {
+        const result = this.navigation.navigate(newPath, {
+          state: { ...state },
+        });
+        // A superseded navigation rejects both promises; that is not an error here.
+        void result.committed?.catch(() => {});
+        void result.finished?.catch(() => {});
+      } catch {
+        // Navigation can synchronously reject an already-active transition.
+      }
     }
   }
 

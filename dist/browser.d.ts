@@ -6,8 +6,8 @@ export interface BrowserPlatform {
     currentHref(): string;
     currentState(): LooseObject | undefined;
     setNativeScrollRestoration(): void;
-    saveScroll(url: string): void;
-    finishScroll(url: string, restoreScroll: boolean, behavior?: ScrollBehavior): void;
+    finishScroll(restoreScroll: boolean, isTraversal: boolean, behavior?: ScrollBehavior): void;
+    restoreInitialScroll(): void;
     isHMR(): boolean;
     shouldPrefetch(): boolean;
     scheduleIdle(callback: () => void): void;

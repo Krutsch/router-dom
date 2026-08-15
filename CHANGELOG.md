@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.0.0-rc4 2026-08-15
+
+- key saved scroll positions per Navigation API entry (`navigation.currentEntry.key`) instead of per url, so a new visit of an already seen url starts on top while back/forward restores the position of that entry
+- read the target position at commit time, so a shrinking layout during rendering can no longer overwrite it
+- correct late-rendered content after reloads instead of scrolling on top of the browser's native restoration, removing the scroll flash on SSR and view-transition apps
+- keep restoring while the traversed route is still growing, abort on user scroll intent and stop after 3s
+- restore traversal positions instantly, `scrollBehavior` now only applies to the top reset of new navigations
+- never interfere with BFCache restoration and share one scroll owner per document
+- handle the `committed` promise of superseded `go()` navigations
+
 ## 4.0.0-rc3 2026-08-14
 
 - keep Navigation API routing and native URLPattern matching while moving lifecycle, rendering, browser, and route-registry behavior behind focused modules

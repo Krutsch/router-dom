@@ -234,8 +234,9 @@
           });
 
           it("calls the lifecycle hooks  when navigating via browser API", async () => {
-            const props = { from: "/", to: "/b/4", params: { id: "4" } };
+             const props = { from: "/", to: "/b/4", params: { id: "4" } };
              const result = navigation.back();
+             void result.committed?.catch(() => {});
              void result.finished?.catch(() => {});
             await sleep(50);
 

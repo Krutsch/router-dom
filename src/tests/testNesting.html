@@ -93,6 +93,7 @@
 
              await waitForRouting(() => {
                const result = navigation.back();
+               void result.committed?.catch(() => {});
                void result.finished?.catch(() => {});
              });
             expect(location.pathname).to.equal("/settings/emails");

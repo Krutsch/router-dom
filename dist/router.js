@@ -40,7 +40,7 @@ export default class Router {
         });
         attachBrowserShell(this, this.platform);
         this.orchestrator.prefetch(this.routeRegistry.routes, initialRoute, adoptsInitialRoute);
-        void this.doRouting(initialUrl, undefined, adoptsInitialRoute, this.navigation.currentEntry?.getState());
+        void this.doRouting(initialUrl, undefined, adoptsInitialRoute, this.navigation.currentEntry?.getState(), undefined, true);
         if (adoptsInitialRoute ||
             initialRoute?.chain.every((segment) => !segment.templateUrl)) {
             this.orchestrator.oldRoute = initialUrl;
@@ -56,16 +56,23 @@ export default class Router {
     set oldRoute(value) {
         this.orchestrator.oldRoute = value ?? undefined;
     }
-    doRouting(to = this.platform.currentUrl(), event, adopt = false, state, signal) {
-        return this.orchestrator.doRouting(to, event, adopt, state, signal);
+    doRouting(to = this.platform.currentUrl(), event, adopt = false, state, signal, preserveScroll = false) {
+        return this.orchestrator.doRouting(to, event, adopt, state, signal, preserveScroll);
     }
     go(path, state = {}, params = "") {
         const newPath = this.platform.base + path + params;
         if (newPath !== this.platform.currentUrl()) {
-            void this.navigation
-                .navigate(newPath, { state: { ...state } })
-                .finished?.catch(() => { })
-                .catch(() => { });
+            try {
+                const result = this.navigation.navigate(newPath, {
+                    state: { ...state },
+                });
+                // A superseded navigation rejects both promises; that is not an error here.
+                void result.committed?.catch(() => { });
+                void result.finished?.catch(() => { });
+            }
+            catch {
+                // Navigation can synchronously reject an already-active transition.
+            }
         }
     }
     removeRoute(path) {

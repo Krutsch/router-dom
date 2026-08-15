@@ -10,7 +10,9 @@ export interface NavigationCallbacks {
 
 const installedNavigations = new WeakMap<Navigation, NavigationCallbacks>();
 
-export function setupNavigation(nextCallbacks: NavigationCallbacks): Navigation {
+export function setupNavigation(
+  nextCallbacks: NavigationCallbacks,
+): Navigation {
   const navigationApi = window.navigation;
   if (
     !navigationApi ||
@@ -58,14 +60,11 @@ function handleNavigate(event: NavigateEvent) {
     event.info === undefined ? event.destination.getState() : event.info;
   if (navigationUrl !== destination.href) {
     event.preventDefault();
-    void navigationNavigate(navigationUrl, state);
+    void navigationNavigate(navigationUrl, state).catch(() => {});
     return;
   }
 
-  if (
-    event.navigationType !== "traverse" &&
-    navigationUrl === location.href
-  ) {
+  if (event.navigationType !== "traverse" && navigationUrl === location.href) {
     event.preventDefault();
     return;
   }
@@ -104,7 +103,7 @@ function handleAnchorClick(event: MouseEvent) {
   const target = anchor.getAttribute("target");
   if (
     href === null ||
-    target !== null && target !== "_self" ||
+    (target !== null && target !== "_self") ||
     anchor.hasAttribute("download")
   ) {
     return;
@@ -180,7 +179,7 @@ function isFormNavigation(event: NavigateEvent) {
   const source = event.sourceElement;
   return (
     source instanceof HTMLFormElement ||
-    source instanceof HTMLButtonElement && source.form !== null ||
-    source instanceof HTMLInputElement && source.form !== null
+    (source instanceof HTMLButtonElement && source.form !== null) ||
+    (source instanceof HTMLInputElement && source.form !== null)
   );
 }

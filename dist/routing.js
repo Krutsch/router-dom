@@ -12,7 +12,7 @@ export class RouteOrchestrator {
         this.platform = platform;
         this.getOptions = getOptions;
     }
-    async doRouting(to = this.platform.currentUrl(), event, adopt = false, state, signal) {
+    async doRouting(to = this.platform.currentUrl(), event, adopt = false, state, signal, preserveScroll = false) {
         const routingVersion = ++this.routingVersion;
         const isCurrent = () => routingVersion === this.routingVersion && !signal?.aborted;
         this.platform.dispatch("beforeRouting");
@@ -22,8 +22,6 @@ export class RouteOrchestrator {
             this.finishRouting(routingVersion, isCurrent);
             return;
         }
-        if (this.oldRoute)
-            this.platform.saveScroll(from);
         try {
             const routeMatch = matchResolvedRoute(route, getRoutePathname(to));
             const routeParams = routeMatch?.pathname.groups ?? {};
@@ -78,8 +76,11 @@ export class RouteOrchestrator {
         finally {
             if (!isCurrent())
                 return;
-            if (!adopt) {
-                this.platform.finishScroll(to, route.restoreScroll ?? true, this.getOptions().scrollBehavior);
+            if (preserveScroll) {
+                this.platform.restoreInitialScroll();
+            }
+            else if (!adopt) {
+                this.platform.finishScroll(route.restoreScroll ?? true, event?.navigationType === "traverse", this.getOptions().scrollBehavior);
             }
             this.finishRouting(routingVersion, isCurrent);
         }

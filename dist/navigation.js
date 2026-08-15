@@ -36,11 +36,10 @@ function handleNavigate(event) {
     const state = event.info === undefined ? event.destination.getState() : event.info;
     if (navigationUrl !== destination.href) {
         event.preventDefault();
-        void navigationNavigate(navigationUrl, state);
+        void navigationNavigate(navigationUrl, state).catch(() => { });
         return;
     }
-    if (event.navigationType !== "traverse" &&
-        navigationUrl === location.href) {
+    if (event.navigationType !== "traverse" && navigationUrl === location.href) {
         event.preventDefault();
         return;
     }
@@ -68,7 +67,7 @@ function handleAnchorClick(event) {
     const href = anchor.getAttribute("href");
     const target = anchor.getAttribute("target");
     if (href === null ||
-        target !== null && target !== "_self" ||
+        (target !== null && target !== "_self") ||
         anchor.hasAttribute("download")) {
         return;
     }
@@ -126,6 +125,6 @@ function isFormNavigation(event) {
         return true;
     const source = event.sourceElement;
     return (source instanceof HTMLFormElement ||
-        source instanceof HTMLButtonElement && source.form !== null ||
-        source instanceof HTMLInputElement && source.form !== null);
+        (source instanceof HTMLButtonElement && source.form !== null) ||
+        (source instanceof HTMLInputElement && source.form !== null));
 }

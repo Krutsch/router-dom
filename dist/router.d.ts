@@ -11,7 +11,7 @@ export default class Router {
     get routes(): readonly [Route, ...Route[]];
     get oldRoute(): undefined | string;
     set oldRoute(value: undefined | string | null);
-    doRouting(to?: string, event?: Event, adopt?: boolean, state?: unknown, signal?: AbortSignal): Promise<void>;
+    doRouting(to?: string, event?: Event, adopt?: boolean, state?: unknown, signal?: AbortSignal, preserveScroll?: boolean): Promise<void>;
     go(path: string, state?: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;

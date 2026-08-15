@@ -32,6 +32,7 @@ export class RouteOrchestrator {
     adopt = false,
     state?: unknown,
     signal?: AbortSignal,
+    preserveScroll = false,
   ) {
     const routingVersion = ++this.routingVersion;
     const isCurrent = () =>
@@ -43,8 +44,6 @@ export class RouteOrchestrator {
       this.finishRouting(routingVersion, isCurrent);
       return;
     }
-
-    if (this.oldRoute) this.platform.saveScroll(from);
 
     try {
       const routeMatch = matchResolvedRoute(route, getRoutePathname(to));
@@ -108,10 +107,12 @@ export class RouteOrchestrator {
       }
     } finally {
       if (!isCurrent()) return;
-      if (!adopt) {
+      if (preserveScroll) {
+        this.platform.restoreInitialScroll();
+      } else if (!adopt) {
         this.platform.finishScroll(
-          to,
           route.restoreScroll ?? true,
+          (event as NavigateEvent | undefined)?.navigationType === "traverse",
           this.getOptions().scrollBehavior,
         );
       }
