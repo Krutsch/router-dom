@@ -13,8 +13,7 @@ export class RouteRegistry<T extends RouteDefinition> {
   constructor(
     routes: readonly T[],
     private readonly base = "",
-    private readonly matcherFactory: RouteMatcherFactory =
-      createURLPatternMatcher,
+    private readonly matcherFactory: RouteMatcherFactory = createURLPatternMatcher,
   ) {
     this.entries = compileRoutes(routes, base, matcherFactory);
   }

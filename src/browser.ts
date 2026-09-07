@@ -310,6 +310,7 @@ export function attachBrowserShell(
 class BrowserShell {
   private router: BrowserRouterLike | undefined;
   private readonly registeredElements = new WeakSet<Element>();
+  private mutationObserver?: MutationObserver;
 
   constructor(private readonly platform: BrowserPlatform) {
     const document = platform.document;
@@ -320,7 +321,7 @@ class BrowserShell {
     const body = document.body;
     if (!body) return;
 
-    new MutationObserver((entries) => {
+    this.mutationObserver = new MutationObserver((entries) => {
       for (const entry of entries) {
         for (const node of entry.addedNodes) {
           const nodes = document.createNodeIterator(
@@ -337,20 +338,19 @@ class BrowserShell {
           let formOrAnchor: HTMLAnchorElement | HTMLFormElement;
           while (
             (formOrAnchor = nodes.nextNode() as
-              | HTMLAnchorElement
-              | HTMLFormElement)
+              HTMLAnchorElement | HTMLFormElement)
           ) {
             this.registerFormEvent(formOrAnchor as HTMLFormElement);
           }
         }
       }
-    }).observe(body, { childList: true, subtree: true });
+    });
+    this.mutationObserver.observe(body, { childList: true, subtree: true });
   }
 
   attach(router: BrowserRouterLike) {
     this.router = router;
   }
-
   private registerFormEvent(form: HTMLFormElement) {
     if (this.registeredElements.has(form)) return;
     this.registeredElements.add(form);

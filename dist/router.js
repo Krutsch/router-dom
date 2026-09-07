@@ -59,6 +59,9 @@ export default class Router {
     doRouting(to = this.platform.currentUrl(), event, adopt = false, state, signal, preserveScroll = false) {
         return this.orchestrator.doRouting(to, event, adopt, state, signal, preserveScroll);
     }
+    destroy() {
+        this.orchestrator.destroy();
+    }
     go(path, state = {}, params = "") {
         const newPath = this.platform.base + path + params;
         if (newPath !== this.platform.currentUrl()) {

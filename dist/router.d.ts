@@ -12,6 +12,7 @@ export default class Router {
     get oldRoute(): undefined | string;
     set oldRoute(value: undefined | string | null);
     doRouting(to?: string, event?: Event, adopt?: boolean, state?: unknown, signal?: AbortSignal, preserveScroll?: boolean): Promise<void>;
+    destroy(): void;
     go(path: string, state?: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;

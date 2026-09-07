@@ -53,8 +53,7 @@ export function createTemplateLoader(
     }
 
     if (!entry.promise) {
-      entry.promise = fetcher(route.templateUrl!)
-        .then((response) => response.text())
+      entry.promise = loadTemplate(fetcher, route.templateUrl!)
         .then((template) => {
           entry!.html = template;
           return template;
@@ -70,11 +69,21 @@ export function createTemplateLoader(
   return {
     load(route) {
       if (isHMR()) {
-        return fetcher(route.templateUrl!).then((response) => response.text());
+        return loadTemplate(fetcher, route.templateUrl!);
       }
       return loadCached(route);
     },
   };
+}
+
+async function loadTemplate(fetcher: Fetcher, templateUrl: string) {
+  const response = await fetcher(templateUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load route template "${templateUrl}": ${response.status} ${response.statusText}`.trim(),
+    );
+  }
+  return response.text();
 }
 
 export class RouteRenderer {

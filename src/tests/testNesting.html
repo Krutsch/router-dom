@@ -91,11 +91,11 @@
             expect(location.pathname).to.equal("/settings/profile");
             expect($("body").textContent).to.include("Edit your profile");
 
-             await waitForRouting(() => {
-               const result = navigation.back();
-               void result.committed?.catch(() => {});
-               void result.finished?.catch(() => {});
-             });
+            await waitForRouting(() => {
+              const result = navigation.back();
+              void result.committed?.catch(() => {});
+              void result.finished?.catch(() => {});
+            });
             expect(location.pathname).to.equal("/settings/emails");
             expect($("body").textContent).to.include("Email Subscriptions");
 

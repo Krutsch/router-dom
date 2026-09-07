@@ -252,6 +252,7 @@ class BrowserShell {
     platform;
     router;
     registeredElements = new WeakSet();
+    mutationObserver;
     constructor(platform) {
         this.platform = platform;
         const document = platform.document;
@@ -261,7 +262,7 @@ class BrowserShell {
         const body = document.body;
         if (!body)
             return;
-        new MutationObserver((entries) => {
+        this.mutationObserver = new MutationObserver((entries) => {
             for (const entry of entries) {
                 for (const node of entry.addedNodes) {
                     const nodes = document.createNodeIterator(node, NodeFilter.SHOW_ELEMENT, {
@@ -277,7 +278,8 @@ class BrowserShell {
                     }
                 }
             }
-        }).observe(body, { childList: true, subtree: true });
+        });
+        this.mutationObserver.observe(body, { childList: true, subtree: true });
     }
     attach(router) {
         this.router = router;

@@ -10,7 +10,9 @@ export declare class RouteOrchestrator {
     private readonly getOptions;
     oldRoute: undefined | string;
     private routingVersion;
+    private destroyed;
     constructor(registry: RouteRegistry<RouteParam>, renderer: RouteRenderer, platform: BrowserPlatform, getOptions: () => RouterOptions);
+    destroy(): void;
     doRouting(to?: string, event?: Event, adopt?: boolean, state?: unknown, signal?: AbortSignal, preserveScroll?: boolean): Promise<void>;
     prefetch(routes: readonly ResolvedRoute<RouteParam>[], initialRoute: ResolvedRoute<RouteParam> | undefined, adoptsInitialRoute: boolean): void;
     private getMatchingRoute;

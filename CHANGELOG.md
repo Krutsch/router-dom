@@ -1,6 +1,10 @@
 # Changelog
 
-## 4.0.0-rc4 2026-08-15
+## 4.0.0-rc.5 2026-09-07
+
+- resolve the Navigation API merge and keep navigation-entry state and abort signals
+- preserve SSR adoption, nested routing, forms, prefetching, and scroll restoration
+- add router cancellation through `Router.destroy()`
 
 - key saved scroll positions per Navigation API entry (`navigation.currentEntry.key`) instead of per url, so a new visit of an already seen url starts on top while back/forward restores the position of that entry
 - read the target position at commit time, so a shrinking layout during rendering can no longer overwrite it

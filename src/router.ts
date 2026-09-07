@@ -121,6 +121,10 @@ export default class Router {
     );
   }
 
+  destroy() {
+    this.orchestrator.destroy();
+  }
+
   go(path: string, state: LooseObject = {}, params = "") {
     const newPath = this.platform.base + path + params;
 

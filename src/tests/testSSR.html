@@ -116,6 +116,66 @@
             }
           });
 
+          it("does not cache failed route template responses", async () => {
+            const initialPath = location.pathname;
+            const destinationPath = `${initialPath}/retry`;
+            const originalFetch = window.fetch;
+            let requests = 0;
+
+            window.fetch = async () => {
+              requests++;
+              return requests === 1
+                ? new Response("temporary failure", { status: 503 })
+                : new Response("<h1>Recovered</h1>");
+            };
+
+            try {
+              const router = new Router([{ path: initialPath }], {
+                errorHandler: () => undefined,
+              });
+              router.addRoute({
+                path: destinationPath,
+                templateUrl: "/retry.html",
+              });
+
+              await router.doRouting(destinationPath);
+              await router.doRouting(destinationPath);
+
+              expect(requests).to.equal(2);
+              expect(
+                document.querySelector("[data-outlet]").textContent,
+              ).to.include("Recovered");
+            } finally {
+              window.fetch = originalFetch;
+            }
+          });
+
+          it("stops navigation work after destroy", async () => {
+            const initialPath = location.pathname;
+            const destinationPath = `${initialPath}/destroyed`;
+            const originalFetch = window.fetch;
+            let requests = 0;
+            window.fetch = async () => {
+              requests++;
+              return new Response("<h1>Unexpected</h1>");
+            };
+
+            try {
+              const router = new Router([{ path: initialPath }]);
+              router.addRoute({
+                path: destinationPath,
+                templateUrl: "/destroyed.html",
+              });
+              router.destroy();
+
+              await router.doRouting(destinationPath);
+
+              expect(requests).to.equal(0);
+            } finally {
+              window.fetch = originalFetch;
+            }
+          });
+
           it("adopts a static path marker when the URL has a query", async () => {
             const outlet = document.querySelector("[data-outlet]");
             const originalFetch = window.fetch;
@@ -179,14 +239,17 @@
                 ],
                 { errorHandler: (error) => (routeError = error) },
               );
-              const navigation = router.doRouting(destinationPath);
+              const routing = new Promise((resolve) =>
+                addEventListener("afterRouting", resolve, { once: true }),
+              );
+              router.go(destinationPath);
               await sleep(10);
 
               expect(outlet.textContent).to.include("Current route");
               expect(outlet.textContent).not.to.include("Parent default");
 
               resolveChild();
-              await navigation;
+              await routing;
 
               expect(routeError).to.equal(undefined);
               const committedOutlet = document.querySelector("[data-outlet]");
