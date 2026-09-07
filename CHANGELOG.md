@@ -6,6 +6,8 @@
 - preserve SSR adoption, nested routing, forms, prefetching, and scroll restoration
 - add router cancellation through `Router.destroy()`
 
+## 4.0.0-rc4 2026-08-15
+
 - key saved scroll positions per Navigation API entry (`navigation.currentEntry.key`) instead of per url, so a new visit of an already seen url starts on top while back/forward restores the position of that entry
 - read the target position at commit time, so a shrinking layout during rendering can no longer overwrite it
 - correct late-rendered content after reloads instead of scrolling on top of the browser's native restoration, removing the scroll flash on SSR and view-transition apps
@@ -39,6 +41,24 @@
 - migrate client-side routing from the History API to the browser Navigation API
 - replace path-to-regexp with native URLPattern route matching
 - preserve lifecycle hooks, nested routes, forms, prefetching, scroll restoration, SSR adoption, and View Transitions
+
+## 3.3.8 2026-09-07
+
+- fix safari bug
+
+## 3.3.7 2026-09-07
+
+- add `Router.destroy()` for releasing browser listeners and cancelling pending work
+- support `data-router-back` links for history traversal and saved scroll restoration
+
+## 3.3.6 2026-08-15
+
+- key saved scroll positions per history entry instead of per url, so a new visit of an already seen url starts on top while back/forward restores the position of that entry
+- stamp history entries with an internal `__routerScroll` key (`history.state`); it is stripped from the `state` passed to route hooks
+- restore reloads through the browser's native restoration and only correct late-rendered content afterwards, removing the scroll flash on SSR and view-transition apps
+- keep restoring while the target route is still growing, abort on user scroll intent and stop after 3s instead of observing the DOM for 10s
+- restore traversal positions instantly, `scrollBehavior` now only applies to the top reset of new navigations
+- leave BFCache restoration to the browser and share one scroll owner per document
 
 ## 3.3.5 2026-08-14
 

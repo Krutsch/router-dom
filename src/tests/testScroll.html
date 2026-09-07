@@ -94,6 +94,28 @@
             expect(scrollY).to.equal(0);
           });
 
+          it("does not overwrite a traversed position with Safari's intermediate scroll", async () => {
+            const router = new Router([
+              { path: "/safari-a", element: tall("A") },
+              { path: "/safari-b", element: tall("B") },
+            ]);
+            await sleep(50);
+
+            let routing = waitForRouting();
+            router.go("/safari-a");
+            await routing;
+            scrollTo(0, 300);
+
+            routing = waitForRouting();
+            router.go("/safari-b");
+            await routing;
+
+            routing = waitForRouting();
+            history.back();
+            await routing;
+            expect(scrollY).to.equal(300);
+          });
+
           it("does not reuse a previous entry's position for a new visit of the same url", async () => {
             const router = new Router([
               { path: "/fresh-a", element: tall("A") },
