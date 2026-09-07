@@ -18,6 +18,7 @@ export default class Router {
   private readonly platform = createBrowserPlatform();
   private readonly routeRegistry: RouteRegistry<RouteParam>;
   private readonly orchestrator: RouteOrchestrator;
+  private readonly detachBrowserShell: () => void;
 
   constructor(routes: [RouteParam, ...RouteParam[]], options: Options = {}) {
     this.routeRegistry = new RouteRegistry(routes, this.platform.base);
@@ -51,7 +52,7 @@ export default class Router {
       () => this.options,
     );
 
-    attachBrowserShell(this, this.platform);
+    this.detachBrowserShell = attachBrowserShell(this, this.platform);
     this.orchestrator.prefetch(
       this.routeRegistry.routes,
       initialRoute,
@@ -89,6 +90,11 @@ export default class Router {
     preserveScroll = false,
   ) {
     return this.orchestrator.doRouting(to, event, adopt, preserveScroll);
+  }
+
+  destroy() {
+    this.orchestrator.destroy();
+    this.detachBrowserShell();
   }
 
   go(path: string, state: LooseObject = {}, params = "") {

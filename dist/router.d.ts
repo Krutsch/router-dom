@@ -6,11 +6,13 @@ export default class Router {
     private readonly platform;
     private readonly routeRegistry;
     private readonly orchestrator;
+    private readonly detachBrowserShell;
     constructor(routes: [RouteParam, ...RouteParam[]], options?: Options);
     get routes(): readonly [Route, ...Route[]];
     get oldRoute(): undefined | string;
     set oldRoute(value: undefined | string | null);
     doRouting(to?: string, event?: PopStateEvent, adopt?: boolean, preserveScroll?: boolean): Promise<void>;
+    destroy(): void;
     go(path: string, state?: LooseObject, params?: string): void;
     removeRoute(path: string): void;
     addRoute(route: RouteParam): void;

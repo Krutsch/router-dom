@@ -8,6 +8,7 @@ export default class Router {
     platform = createBrowserPlatform();
     routeRegistry;
     orchestrator;
+    detachBrowserShell;
     constructor(routes, options = {}) {
         this.routeRegistry = new RouteRegistry(routes, this.platform.base);
         this.options = options;
@@ -24,7 +25,7 @@ export default class Router {
         const templates = createTemplateLoader((input, init) => this.platform.fetch(input, init), () => this.platform.isHMR());
         const renderer = new RouteRenderer(templates, createHydroRenderAdapter(this.platform.document));
         this.orchestrator = new RouteOrchestrator(this.routeRegistry, renderer, this.platform, () => this.options);
-        attachBrowserShell(this, this.platform);
+        this.detachBrowserShell = attachBrowserShell(this, this.platform);
         this.orchestrator.prefetch(this.routeRegistry.routes, initialRoute, adoptsInitialRoute);
         void this.doRouting(initialUrl, undefined, adoptsInitialRoute, true);
         if (adoptsInitialRoute ||
@@ -44,6 +45,10 @@ export default class Router {
     }
     doRouting(to = this.platform.currentUrl(), event, adopt = false, preserveScroll = false) {
         return this.orchestrator.doRouting(to, event, adopt, preserveScroll);
+    }
+    destroy() {
+        this.orchestrator.destroy();
+        this.detachBrowserShell();
     }
     go(path, state = {}, params = "") {
         const newPath = this.platform.base + path + params;

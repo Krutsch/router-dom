@@ -90,6 +90,16 @@ Set `data-router-path` on the route outlet to current pathname, optionally inclu
 
 When the marker matches a configured route, the constructor adopts the existing DOM, skips the duplicate initial template request and render, then consumes the marker. Later navigation behaves normally. Missing or stale markers keep the original client-rendered startup behavior.
 
+Use `router.destroy()` when the router's document ownership ends, such as an
+HMR replacement or an island teardown. It cancels pending router work and
+releases its `popstate` and DOM observers. Links marked with `data-router-back`
+use history traversal, allowing the router to restore the saved scroll position
+for the previous entry:
+
+```html
+<a href="/directory" data-router-back>Back</a>
+```
+
 ### go
 
 - Takes a path, a state object and optional params. Will redirect to the path.

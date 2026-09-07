@@ -17,7 +17,7 @@ export interface BrowserPlatform {
     outlet(): Element | null;
     removeServerRouteMarker(outlet: Element): void;
     dispatch(name: string): void;
-    onPopState(listener: (event: PopStateEvent) => void): void;
+    onPopState(listener: (event: PopStateEvent) => void): () => void;
 }
 export declare function createBrowserPlatform(): BrowserPlatform;
 export interface BrowserRouterLike {
@@ -25,4 +25,4 @@ export interface BrowserRouterLike {
     go(path: string, state?: LooseObject): void;
     doRouting(to?: string, event?: PopStateEvent, adopt?: boolean): Promise<void>;
 }
-export declare function attachBrowserShell(router: BrowserRouterLike, platform: BrowserPlatform): void;
+export declare function attachBrowserShell(router: BrowserRouterLike, platform: BrowserPlatform): () => void;

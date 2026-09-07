@@ -123,6 +123,111 @@
             }
           });
 
+          it("does not cache failed route template responses", async () => {
+            const initialPath = location.pathname;
+            const destinationPath = `${initialPath}/retry`;
+            const originalFetch = window.fetch;
+            let requests = 0;
+
+            window.fetch = async () => {
+              requests++;
+              return requests === 1
+                ? new Response("temporary failure", { status: 503 })
+                : new Response("<h1>Recovered</h1>");
+            };
+
+            try {
+              const router = new Router([{ path: initialPath }], {
+                errorHandler: () => undefined,
+              });
+              router.addRoute({
+                path: destinationPath,
+                templateUrl: "/retry.html",
+              });
+
+              await router.doRouting(destinationPath);
+              await router.doRouting(destinationPath);
+
+              expect(requests).to.equal(2);
+              expect(
+                document.querySelector("[data-outlet]").textContent,
+              ).to.include("Recovered");
+            } finally {
+              window.fetch = originalFetch;
+            }
+          });
+
+          it("stops navigation work after destroy", async () => {
+            const initialPath = location.pathname;
+            const destinationPath = `${initialPath}/destroyed`;
+            const originalFetch = window.fetch;
+            let requests = 0;
+            window.fetch = async () => {
+              requests++;
+              return new Response("<h1>Unexpected</h1>");
+            };
+
+            try {
+              const router = new Router([{ path: initialPath }]);
+              router.addRoute({
+                path: destinationPath,
+                templateUrl: "/destroyed.html",
+              });
+              router.destroy();
+
+              await router.doRouting(destinationPath);
+
+              expect(requests).to.equal(0);
+            } finally {
+              window.fetch = originalFetch;
+            }
+          });
+
+          it("uses history traversal for explicit back links", async () => {
+            const initialPath = location.pathname;
+            const destinationPath = `${initialPath}/history-back`;
+            const router = new Router([
+              { path: initialPath, element: "Initial" },
+              {
+                path: destinationPath,
+                element: '<a data-router-back href="/">Back</a>',
+              },
+            ]);
+            await sleep(30);
+            router.go(destinationPath);
+            await sleep(30);
+
+            const anchor = document.querySelector("[data-router-back]");
+            expect(anchor).to.not.equal(null);
+
+            const originalBack = history.back;
+            let wentBack = false;
+            Object.defineProperty(history, "back", {
+              configurable: true,
+              writable: true,
+              value: () => {
+                wentBack = true;
+              },
+            });
+            try {
+              anchor.dispatchEvent(
+                new MouseEvent("click", {
+                  bubbles: true,
+                  cancelable: true,
+                  button: 0,
+                }),
+              );
+              await sleep(30);
+              expect(wentBack).to.equal(true);
+            } finally {
+              Object.defineProperty(history, "back", {
+                configurable: true,
+                writable: true,
+                value: originalBack,
+              });
+            }
+          });
+
           it("adopts a static path marker when the URL has a query", async () => {
             const outlet = document.querySelector("[data-outlet]");
             const originalFetch = window.fetch;

@@ -39,7 +39,7 @@ export interface BrowserPlatform {
   outlet(): Element | null;
   removeServerRouteMarker(outlet: Element): void;
   dispatch(name: string): void;
-  onPopState(listener: (event: PopStateEvent) => void): void;
+  onPopState(listener: (event: PopStateEvent) => void): () => void;
 }
 
 export function createBrowserPlatform(): BrowserPlatform {
@@ -130,10 +130,12 @@ export function createBrowserPlatform(): BrowserPlatform {
       window.dispatchEvent(new Event(name));
     },
     onPopState(listener) {
-      window.addEventListener("popstate", (event) => {
+      const onPopState = (event: PopStateEvent) => {
         scroll.syncFromHistory();
         listener(event);
-      });
+      };
+      window.addEventListener("popstate", onPopState);
+      return () => window.removeEventListener("popstate", onPopState);
     },
   };
 }
@@ -337,19 +339,24 @@ export function attachBrowserShell(
   platform: BrowserPlatform,
 ) {
   let shell = browserShells.get(platform.document);
-  if (!shell) {
+  if (!shell || shell.disposed) {
     shell = new BrowserShell(platform);
     browserShells.set(platform.document, shell);
   }
   shell.attach(router);
+  const activeShell = shell;
+  return () => activeShell.detach(router);
 }
 
 class BrowserShell {
   private router: BrowserRouterLike | undefined;
   private readonly registeredElements = new WeakSet<Element>();
+  private readonly stopPopState: () => void;
+  private mutationObserver?: MutationObserver;
+  disposed = false;
 
   constructor(private readonly platform: BrowserPlatform) {
-    platform.onPopState((event) => {
+    this.stopPopState = platform.onPopState((event) => {
       void this.router?.doRouting(platform.currentUrl(), event);
     });
     const document = platform.document;
@@ -363,9 +370,16 @@ class BrowserShell {
     const body = document.body;
     if (!body) return;
 
-    new MutationObserver((entries) => {
+    this.mutationObserver = new MutationObserver((entries) => {
       for (const entry of entries) {
         for (const node of entry.addedNodes) {
+          const element = node as Element;
+          if (element.localName === "a") {
+            this.registerAnchorEvent(element as HTMLAnchorElement);
+          } else if (element.localName === "form") {
+            this.registerFormEvent(element as HTMLFormElement);
+          }
+
           const nodes = document.createNodeIterator(
             node,
             NodeFilter.SHOW_ELEMENT,
@@ -380,7 +394,8 @@ class BrowserShell {
           let formOrAnchor: HTMLAnchorElement | HTMLFormElement;
           while (
             (formOrAnchor = nodes.nextNode() as
-              HTMLAnchorElement | HTMLFormElement)
+              | HTMLAnchorElement
+              | HTMLFormElement)
           ) {
             if (formOrAnchor.localName === "a") {
               this.registerAnchorEvent(formOrAnchor as HTMLAnchorElement);
@@ -390,11 +405,20 @@ class BrowserShell {
           }
         }
       }
-    }).observe(body, { childList: true, subtree: true });
+    });
+    this.mutationObserver.observe(body, { childList: true, subtree: true });
   }
 
   attach(router: BrowserRouterLike) {
     this.router = router;
+  }
+
+  detach(router: BrowserRouterLike) {
+    if (this.router !== router) return;
+    this.router = undefined;
+    this.disposed = true;
+    this.stopPopState();
+    this.mutationObserver?.disconnect();
   }
 
   private registerAnchorEvent(anchor: HTMLAnchorElement) {
@@ -427,6 +451,12 @@ class BrowserShell {
           url.pathname === currentUrl.pathname &&
           url.search === currentUrl.search)
       ) {
+        return;
+      }
+
+      if (anchor.hasAttribute("data-router-back")) {
+        event.preventDefault();
+        history.back();
         return;
       }
 

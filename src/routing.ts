@@ -18,6 +18,7 @@ export class RouteOrchestrator {
   oldRoute: undefined | string;
 
   private routingVersion = 0;
+  private destroyed = false;
 
   constructor(
     private readonly registry: RouteRegistry<RouteParam>,
@@ -26,12 +27,18 @@ export class RouteOrchestrator {
     private readonly getOptions: () => RouterOptions,
   ) {}
 
+  destroy() {
+    this.destroyed = true;
+    this.routingVersion++;
+  }
+
   async doRouting(
     to = this.platform.currentUrl(),
     event?: PopStateEvent,
     adopt = false,
     preserveScroll = false,
   ) {
+    if (this.destroyed) return;
     const routingVersion = ++this.routingVersion;
     const isCurrent = () => routingVersion === this.routingVersion;
     this.platform.dispatch("beforeRouting");
@@ -115,6 +122,7 @@ export class RouteOrchestrator {
     initialRoute: ResolvedRoute<RouteParam> | undefined,
     adoptsInitialRoute: boolean,
   ) {
+    if (this.destroyed) return;
     routes.forEach((resolvedRoute) => {
       if (
         adoptsInitialRoute &&
@@ -126,6 +134,7 @@ export class RouteOrchestrator {
       if (!route.templateUrl || !this.platform.shouldPrefetch()) return;
 
       this.platform.scheduleIdle(() => {
+        if (this.destroyed) return;
         void this.renderer.prefetch(route).catch(async (error) => {
           await this.getOptions().errorHandler?.(error);
         });

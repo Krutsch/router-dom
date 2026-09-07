@@ -96,10 +96,12 @@ export function createBrowserPlatform() {
             window.dispatchEvent(new Event(name));
         },
         onPopState(listener) {
-            window.addEventListener("popstate", (event) => {
+            const onPopState = (event) => {
                 scroll.syncFromHistory();
                 listener(event);
-            });
+            };
+            window.addEventListener("popstate", onPopState);
+            return () => window.removeEventListener("popstate", onPopState);
         },
     };
 }
@@ -278,19 +280,24 @@ function createScrollManager() {
 const browserShells = new WeakMap();
 export function attachBrowserShell(router, platform) {
     let shell = browserShells.get(platform.document);
-    if (!shell) {
+    if (!shell || shell.disposed) {
         shell = new BrowserShell(platform);
         browserShells.set(platform.document, shell);
     }
     shell.attach(router);
+    const activeShell = shell;
+    return () => activeShell.detach(router);
 }
 class BrowserShell {
     platform;
     router;
     registeredElements = new WeakSet();
+    stopPopState;
+    mutationObserver;
+    disposed = false;
     constructor(platform) {
         this.platform = platform;
-        platform.onPopState((event) => {
+        this.stopPopState = platform.onPopState((event) => {
             void this.router?.doRouting(platform.currentUrl(), event);
         });
         const document = platform.document;
@@ -303,9 +310,16 @@ class BrowserShell {
         const body = document.body;
         if (!body)
             return;
-        new MutationObserver((entries) => {
+        this.mutationObserver = new MutationObserver((entries) => {
             for (const entry of entries) {
                 for (const node of entry.addedNodes) {
+                    const element = node;
+                    if (element.localName === "a") {
+                        this.registerAnchorEvent(element);
+                    }
+                    else if (element.localName === "form") {
+                        this.registerFormEvent(element);
+                    }
                     const nodes = document.createNodeIterator(node, NodeFilter.SHOW_ELEMENT, {
                         acceptNode(element) {
                             return ["form", "a"].includes(element.localName)
@@ -324,10 +338,19 @@ class BrowserShell {
                     }
                 }
             }
-        }).observe(body, { childList: true, subtree: true });
+        });
+        this.mutationObserver.observe(body, { childList: true, subtree: true });
     }
     attach(router) {
         this.router = router;
+    }
+    detach(router) {
+        if (this.router !== router)
+            return;
+        this.router = undefined;
+        this.disposed = true;
+        this.stopPopState();
+        this.mutationObserver?.disconnect();
     }
     registerAnchorEvent(anchor) {
         if (this.registeredElements.has(anchor))
@@ -354,6 +377,11 @@ class BrowserShell {
                 (url.hash &&
                     url.pathname === currentUrl.pathname &&
                     url.search === currentUrl.search)) {
+                return;
+            }
+            if (anchor.hasAttribute("data-router-back")) {
+                event.preventDefault();
+                history.back();
                 return;
             }
             event.preventDefault();

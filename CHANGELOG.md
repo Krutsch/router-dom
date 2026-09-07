@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.3.7 2026-09-07
+
+- add `Router.destroy()` for releasing browser listeners and cancelling pending work
+- support `data-router-back` links for history traversal and saved scroll restoration
+
 ## 3.3.6 2026-08-15
 
 - key saved scroll positions per history entry instead of per url, so a new visit of an already seen url starts on top while back/forward restores the position of that entry
