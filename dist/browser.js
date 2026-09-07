@@ -146,6 +146,8 @@ function createScrollManager() {
     let currentKey = readEntryKey();
     // Snapshot before any load-time scroll event can overwrite the reload target.
     let initialPosition = positions.get(currentKey);
+    let pendingTraversal = false;
+    let pendingPosition;
     let persistTimer;
     let restoreVersion = 0;
     let restoring = false;
@@ -176,6 +178,8 @@ function createScrollManager() {
         }, 200);
     };
     const record = () => {
+        if (pendingTraversal)
+            return;
         positions.delete(currentKey);
         positions.set(currentKey, [scrollX, scrollY]);
         schedulePersist();
@@ -225,7 +229,7 @@ function createScrollManager() {
         step();
     };
     window.addEventListener("scroll", () => {
-        if (!restoring)
+        if (!restoring && !pendingTraversal)
             record();
     }, { passive: true });
     window.addEventListener("pagehide", (event) => {
@@ -254,7 +258,12 @@ function createScrollManager() {
         flush,
         cancel,
         restore,
-        position: () => positions.get(currentKey),
+        position: () => {
+            const position = pendingPosition ?? positions.get(currentKey);
+            pendingPosition = undefined;
+            pendingTraversal = false;
+            return position;
+        },
         // Consumed once: a router re-created later must not re-apply the load position.
         takeInitialPosition: () => {
             const position = initialPosition;
@@ -263,6 +272,8 @@ function createScrollManager() {
         },
         forget: () => {
             positions.delete(currentKey);
+            pendingPosition = undefined;
+            pendingTraversal = false;
             schedulePersist();
         },
         adoptKey: (key) => {
@@ -274,6 +285,8 @@ function createScrollManager() {
             cancel();
             flush();
             currentKey = readEntryKey();
+            pendingTraversal = true;
+            pendingPosition = positions.get(currentKey);
         },
     };
 }

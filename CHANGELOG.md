@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.8 2026-09-07
+
+- fix safari bug
+
 ## 3.3.7 2026-09-07
 
 - add `Router.destroy()` for releasing browser listeners and cancelling pending work
