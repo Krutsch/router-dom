@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.9 2026-10-30
+
+- upgrade `path-to-regexp` to 9, which changes ambiguous parameter matching and rejects duplicate trailing slashes
+
 ## 3.3.8 2026-09-07
 
 - fix safari bug

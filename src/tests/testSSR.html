@@ -54,6 +54,48 @@
             );
           });
 
+          it("matches explicit trailing slashes only once", () => {
+            const routes = compileRoutes([{ path: "/trailing/" }]);
+
+            expect(resolveRoute(routes, "/trailing/")).to.not.equal(undefined);
+            expect(resolveRoute(routes, "/trailing//")).to.equal(undefined);
+          });
+
+          it("decodes ambiguous parameters and wildcard segments", async () => {
+            let routeParams;
+            const captureParams = ({ params }) => {
+              routeParams = params;
+            };
+            const router = new Router([
+              {
+                path: "/files/:file.:ext",
+                element: "<h1>File</h1>",
+                beforeEnter: captureParams,
+              },
+              {
+                path: "/browse/*parts",
+                element: "<h1>Folder</h1>",
+                beforeEnter: captureParams,
+              },
+            ]);
+
+            try {
+              await router.doRouting("/files/report%20v1.csv.gz?view=full");
+              expect(routeParams).to.deep.equal({
+                view: "full",
+                file: "report v1",
+                ext: "csv.gz",
+              });
+
+              await router.doRouting("/browse/reports/2026%20Q4.csv");
+              expect(routeParams).to.deep.equal({
+                parts: ["reports", "2026 Q4.csv"],
+              });
+            } finally {
+              router.destroy();
+            }
+          });
+
           it("keeps route snapshots isolated and matcher-compatible", () => {
             const path = location.pathname;
             const router = new Router([{ path }]);
